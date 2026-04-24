@@ -215,7 +215,7 @@ export default function Home() {
                 </select>
               </div>
               <div className="fg">
-                <label>추가 요청 <span style={{fontWeight:400,textTransform:'none',letterSpacing:0,fontSize:10,color:'rgba(0,0,0,0.24)}}>(선택)</span></label>
+                <label>추가 요청 <span style={{fontWeight:400,textTransform:'none',letterSpacing:'0px',fontSize:10,color:'rgba(0,0,0,0.24)}}>(선택)</span></label>
                 <input type="text" value={extra} onChange={e=>setExtra(e.target.value)} placeholder="예) 사례 중심, 실습 중심"/>
               </div>
 

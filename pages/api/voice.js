@@ -4,35 +4,27 @@ export default async function handler(req, res) {
   const { narration, voiceId } = req.body;
   if (!narration) return res.status(400).json({ error: '내레이션 텍스트가 없습니다.' });
 
-  const clientId = process.env.CLOVA_CLIENT_ID;
-  const clientSecret = process.env.CLOVA_CLIENT_SECRET;
-
-  if (!clientId || !clientSecret) {
-    return res.status(500).json({ error: 'CLOVA API 환경변수가 설정되지 않았습니다.' });
-  }
-
   try {
-    const params = new URLSearchParams();
-    params.append('speaker', voiceId || 'nara');
-    params.append('text', narration);
-    params.append('volume', '0');
-    params.append('speed', '-1');
-    params.append('pitch', '0');
-    params.append('format', 'mp3');
-
-    const response = await fetch('https://naveropenapi.apigw.ntruss.com/tts-premium/v1/tts', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-NCP-APIGW-API-KEY-ID': clientId,
-        'X-NCP-APIGW-API-KEY': clientSecret,
-      },
-      body: params.toString()
-    });
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId || 'fLvpMIGwcTmxzsUF4z1U'}`,
+      {
+        method: 'POST',
+        headers: {
+          'xi-api-key': process.env.ELEVENLABS_API_KEY,
+          'Content-Type': 'application/json',
+          'Accept': 'audio/mpeg',
+        },
+        body: JSON.stringify({
+          text: narration,
+          model_id: 'eleven_multilingual_v2',
+          voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true }
+        })
+      }
+    );
 
     if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`CLOVA 오류 ${response.status}: ${errText}`);
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail?.message || `ElevenLabs HTTP ${response.status}`);
     }
 
     const audioBuffer = await response.arrayBuffer();

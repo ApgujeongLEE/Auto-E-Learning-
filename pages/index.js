@@ -215,7 +215,7 @@ export default function Home() {
                 </select>
               </div>
               <div className="fg">
-                <label>추가 요청 <span style={{fontWeight:400,textTransform:'none',letterSpacing:'0px',fontSize:10,color:'rgba(0,0,0,0.24)}}>(선택)</span></label>
+                <label>추가 요청 <span className="opt-label">(선택)</span></label>
                 <input type="text" value={extra} onChange={e=>setExtra(e.target.value)} placeholder="예) 사례 중심, 실습 중심"/>
               </div>
 
@@ -414,6 +414,7 @@ export default function Home() {
         .lp-sub{font-family:var(--tf);font-size:13px;color:var(--t48);letter-spacing:-.224px}
         .lp-body{flex:1;overflow-y:auto;padding:18px 24px}
         .lp-foot{padding:14px 24px;border-top:1px solid var(--t08);flex-shrink:0;background:#fff}
+        .opt-label{font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:rgba(0,0,0,0.24)}
         .fg{margin-bottom:16px}
         .fg:last-of-type{margin-bottom:0}
         label{display:block;font-family:var(--tf);font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--t48);margin-bottom:6px}

@@ -2,14 +2,7 @@ import { useState, useRef } from 'react';
 import Head from 'next/head';
 
 const VOICES = [
-  { id: 'nara', name: 'Nara — 차분하고 명확한 여성' },
-  { id: 'nbora', name: 'Bora — 친근하고 따뜻한 여성' },
-  { id: 'njiyeon', name: 'Jiyeon — 밝고 활기찬 여성' },
-  { id: 'nsunhee', name: 'Sunhee — 부드럽고 따뜻한 여성' },
-  { id: 'ndain', name: 'Dain — 젊고 또렷한 여성' },
-  { id: 'nminjun', name: 'Minjun — 젊고 활기찬 남성' },
-  { id: 'njoonyoung', name: 'Joonyoung — 차분하고 신뢰감 있는 남성' },
-  { id: 'njihun', name: 'Jihun — 부드럽고 친근한 남성' },
+  { id: 'fLvpMIGwcTmxzsUF4z1U', name: 'Harry — 부드럽고 안정감 있는 한국어 남성' },
 ];
 
 const LOAD_MSGS = [

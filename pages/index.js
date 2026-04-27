@@ -42,6 +42,10 @@ export default function Home() {
   const [openScenes, setOpenScenes] = useState({});
   const [btn1Loading, setBtn1Loading] = useState(false);
   const [btn2Loading, setBtn2Loading] = useState(false);
+  const [btn3Loading, setBtn3Loading] = useState(false);
+  const [videoMap, setVideoMap] = useState({}); // scene_no → url
+  const [videoStatus, setVideoStatus] = useState('wait'); // wait | running | done
+  const [videoErrors, setVideoErrors] = useState({});
   const msgTimer = useRef(null);
 
   /* ── STEP 1: SCENARIO ── */
@@ -108,6 +112,57 @@ export default function Home() {
     setBtn2Loading(false);
   }
 
+  /* ── STEP 3: VIDEO ── */
+  async function generateVideo() {
+    if (!scenario) return;
+    setBtn3Loading(true);
+    setVideoStatus('running');
+    const newVideoMap = { ...videoMap };
+    const newErrors = {};
+
+    for (const sc of scenario.scenes) {
+      setGeneratingScene(sc.scene_no);
+      try {
+        // 1. 영상 생성 요청
+        const createRes = await fetch('/api/video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ screen_prompt: sc.screen_prompt, scene_no: sc.scene_no, action: 'create' })
+        });
+        const createData = await createRes.json();
+        if (!createRes.ok) throw new Error(createData.error);
+        const { task_id } = createData;
+
+        // 2. 완료될 때까지 폴링 (최대 3분)
+        let videoUrl = null;
+        for (let i = 0; i < 36; i++) {
+          await new Promise(r => setTimeout(r, 5000));
+          const statusRes = await fetch('/api/video', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ task_id, scene_no: sc.scene_no, action: 'status' })
+          });
+          const statusData = await statusRes.json();
+          if (statusData.status === 'succeed' && statusData.video_url) {
+            videoUrl = statusData.video_url;
+            break;
+          }
+          if (statusData.status === 'failed') throw new Error('영상 생성 실패');
+        }
+        if (!videoUrl) throw new Error('영상 생성 시간 초과');
+        newVideoMap[sc.scene_no] = videoUrl;
+        setVideoMap({ ...newVideoMap });
+      } catch (e) {
+        newErrors[sc.scene_no] = e.message;
+        setVideoErrors({ ...newErrors });
+      }
+    }
+    setGeneratingScene(null);
+    setVideoStatus('done');
+    setStep(4);
+    setBtn3Loading(false);
+  }
+
   function toggleScene(no) {
     setOpenScenes(prev => ({ ...prev, [no]: !prev[no] }));
   }
@@ -125,6 +180,7 @@ export default function Home() {
 
   function reset() {
     setScenario(null); setAudioMap({}); setVoiceErrors({});
+    setVideoMap({}); setVideoErrors({}); setVideoStatus('wait');
     setVoiceStatus('wait'); setStep(1); setView('empty');
     setErr1(''); setErr2(''); setOpenScenes({});
   }
@@ -234,6 +290,21 @@ export default function Home() {
                   {err2 && <div className="err">{err2}</div>}
                 </div>
               )}
+
+              {/* STEP 3 — 음성 완료 후 표시 */}
+              {voiceStatus === 'done' && (
+                <div className="s2-section">
+                  <div className="div" style={{marginTop:16}}/>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+                    <span className="s2-tag" style={{background:'rgba(0,0,0,0.07)',color:'#1d1d1f'}}>Step 3</span>
+                    <span className="s2-label">영상 생성</span>
+                  </div>
+                  <div className="hint" style={{marginBottom:8}}>
+                    시나리오의 화면 지문을 Kling AI로 자동 영상 생성합니다.<br/>
+                    장면당 약 1~2분 소요 · 총 {scenario?.scenes.length}장면
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="lp-foot">
@@ -243,6 +314,16 @@ export default function Home() {
               {step >= 2 && (
                 <button className="btn-dark" onClick={generateVoice} disabled={btn2Loading}>
                   {btn2Loading ? `음성 생성 중... (${generatingScene || ''}장면)` : voiceStatus==='done' ? `음성 완성 — ${Object.keys(audioMap).length}/${scenario?.scenes.length}장면` : '음성 생성하기'}
+                </button>
+              )}
+              {voiceStatus === 'done' && (
+                <button className="btn-dark" onClick={generateVideo} disabled={btn3Loading}
+                  style={{background: videoStatus==='done' ? '#1d6f42' : '#1d1d1f'}}>
+                  {btn3Loading
+                    ? `영상 생성 중... (${generatingScene || ''}장면)`
+                    : videoStatus==='done'
+                    ? `영상 완성 — ${Object.keys(videoMap).length}/${scenario?.scenes.length}장면`
+                    : '영상 생성하기 (Kling)'}
                 </button>
               )}
             </div>
@@ -304,7 +385,10 @@ export default function Home() {
                     <span className="pdot"/>
                     {voiceStatus==='done'?`음성 완성 (${Object.keys(audioMap).length}/${scenario.scenes.length})`:voiceStatus==='running'?'음성 생성 중...':'음성 대기'}
                   </span>
-                  <span className="pp"><span className="pdot"/>영상 대기</span>
+                  <span className={`pp${videoStatus==='done'?' done':videoStatus==='running'?' running':''}`}>
+                    <span className="pdot"/>
+                    {videoStatus==='done'?`영상 완성 (${Object.keys(videoMap).length}/${scenario.scenes.length})`:videoStatus==='running'?'영상 생성 중...':'영상 대기'}
+                  </span>
                   <span className="pp"><span className="pdot"/>자막 대기</span>
                   <span className="pp"><span className="pdot"/>합성 대기</span>
                 </div>
@@ -316,7 +400,9 @@ export default function Home() {
                     const m = Math.floor((sc.duration_sec||0)/60), s = (sc.duration_sec||0)%60;
                     const isOpen = openScenes[sc.scene_no] !== false;
                     const audioUrl = audioMap[sc.scene_no];
+                    const videoUrl = videoMap[sc.scene_no];
                     const voiceErr = voiceErrors[sc.scene_no];
+                    const videoErr = videoErrors[sc.scene_no];
                     const isGen = generatingScene === sc.scene_no;
                     return (
                       <div className="sc" key={sc.scene_no}>
@@ -324,19 +410,31 @@ export default function Home() {
                           <span className="sc-num">Scene {sc.scene_no}</span>
                           <span className="sc-t">{sc.chapter}</span>
                           {audioUrl && <span style={{fontSize:11,color:'#0071e3',marginRight:4}}>♪</span>}
+                          {videoUrl && <span style={{fontSize:11,color:'#1d6f42',marginRight:4}}>▶</span>}
                           <span className="sc-d">{m>0?`${m}분 `:''}{s}초</span>
                           <span className="sc-chev" style={{transform:isOpen?'rotate(0)':'rotate(-90deg)'}}>▼</span>
                         </div>
                         {isOpen && (
                           <div className="sc-body">
                             <div>
-                              <div className="fl blue"><span className="fdot"/>화면 지문 — Kling / Veo 프롬프트</div>
+                              <div className="fl blue"><span className="fdot"/>화면 지문 — Kling 프롬프트</div>
                               <div className="ft">{sc.screen_prompt}</div>
+                              {/* 영상 플레이어 */}
+                              {btn3Loading && isGen && <div className="a-gen"><span className="spin-s"/>영상 생성 중... (약 1~2분)</div>}
+                              {videoUrl && (
+                                <div style={{marginTop:8}}>
+                                  <div className="a-row">
+                                    <span className="a-lbl">영상</span>
+                                    <video controls src={videoUrl} style={{flex:1,height:120,borderRadius:6,background:'#000'}}/>
+                                    <a className="a-dl" href={videoUrl} download={`scene_${sc.scene_no}.mp4`} target="_blank" rel="noreferrer">MP4 ↓</a>
+                                  </div>
+                                </div>
+                              )}
+                              {videoErr && <div style={{fontSize:12,color:'#c0392b',marginTop:6}}>영상 오류: {videoErr}</div>}
                             </div>
                             <div>
                               <div className="fl gray"><span className="fdot"/>내레이션 — ElevenLabs TTS</div>
                               <div className="ft narr">{sc.narration}</div>
-                              {isGen && <div className="a-gen"><span className="spin-s"/>생성 중...</div>}
                               {audioUrl && (
                                 <div className="a-row">
                                   <span className="a-lbl">음성</span>
@@ -363,7 +461,13 @@ export default function Home() {
                       <div className="npc-tool">ElevenLabs API</div>
                       <span className="npc-badge live">Active</span>
                     </div>
-                    {[{n:3,name:'영상 생성',tool:'Kling · Veo API'},{n:4,name:'자막 생성',tool:'Whisper API'},{n:5,name:'최종 합성',tool:'FFmpeg'}].map(p=>(
+                    <div className="npc live">
+                      <div className="npc-n live">Step 3 · 연동 완료</div>
+                      <div className="npc-name">영상 생성</div>
+                      <div className="npc-tool">Kling API</div>
+                      <span className="npc-badge live">Active</span>
+                    </div>
+                    {[{n:4,name:'자막 생성',tool:'Whisper API'},{n:5,name:'최종 합성',tool:'FFmpeg'}].map(p=>(
                       <div className="npc" key={p.n}>
                         <div className="npc-n">Step {p.n}</div>
                         <div className="npc-name">{p.name}</div>

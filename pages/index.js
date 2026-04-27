@@ -113,6 +113,12 @@ export default function Home() {
   }
 
   /* ── STEP 3: VIDEO ── */
+  async function safeJson(res) {
+    const text = await res.text();
+    try { return JSON.parse(text); }
+    catch(_) { throw new Error(`서버 오류 (${res.status}): API Route가 응답하지 않습니다. GitHub에 pages/api/video.js 파일이 있는지 확인해주세요.`); }
+  }
+
   async function generateVideo() {
     if (!scenario) return;
     setBtn3Loading(true);
@@ -129,7 +135,7 @@ export default function Home() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ screen_prompt: sc.screen_prompt, scene_no: sc.scene_no, action: 'create' })
         });
-        const createData = await createRes.json();
+        const createData = await safeJson(createRes);
         if (!createRes.ok) throw new Error(createData.error);
         const { task_id } = createData;
 
@@ -142,7 +148,7 @@ export default function Home() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ task_id, scene_no: sc.scene_no, action: 'status' })
           });
-          const statusData = await statusRes.json();
+          const statusData = await safeJson(statusRes);
           if (statusData.status === 'succeed' && statusData.video_url) {
             videoUrl = statusData.video_url;
             break;

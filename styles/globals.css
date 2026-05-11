@@ -10,7 +10,7 @@
 html,body{height:100%;-webkit-font-smoothing:antialiased}
 body{font-family:var(--tf);background:var(--lg);color:var(--nb);overflow:hidden}
 .root{display:flex;flex-direction:column;height:100vh}
-header{height:52px;flex-shrink:0;background:rgba(255,255,255,.88);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--t08);display:flex;align-items:center;padding:0 24px;z-index:100}
+header{height:52px;flex-shrink:0;background:rgba(255,255,255,.88);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--t08);display:flex;align-items:center;padding:0 24px;z-index:100;gap:0}
 .logo{font-family:var(--df);font-size:17px;font-weight:600;color:var(--nb);letter-spacing:-.374px;margin-right:36px;white-space:nowrap;flex-shrink:0}
 .steps{display:flex;align-items:center;flex:1;overflow:hidden}
 .step{display:flex;align-items:center;gap:7px;padding:5px 12px;border-radius:980px;font-family:var(--tf);font-size:12px;font-weight:400;letter-spacing:-.12px;color:var(--t48);white-space:nowrap;flex-shrink:0;transition:all .2s}
@@ -20,6 +20,11 @@ header{height:52px;flex-shrink:0;background:rgba(255,255,255,.88);backdrop-filte
 .step.active .step-n{background:rgba(255,255,255,.25);color:#fff}
 .step.done .step-n{background:rgba(0,102,204,.1);color:var(--lb)}
 .sdiv{width:16px;height:1px;background:var(--t24);flex-shrink:0}
+/* 저장 배지 */
+.save-badge{display:flex;align-items:center;gap:5px;font-family:var(--tf);font-size:11px;color:var(--t48);white-space:nowrap;margin-left:16px;flex-shrink:0}
+.save-dot{width:6px;height:6px;border-radius:50%;background:#34c759;flex-shrink:0}
+.save-dot-w{width:6px;height:6px;border-radius:50%;background:#34c759;flex-shrink:0;display:inline-block;margin-right:4px}
+.r-saved{display:flex;align-items:center;font-family:var(--tf);font-size:11px;color:rgba(255,255,255,.4);white-space:nowrap}
 .app{display:flex;flex:1;min-height:0;overflow:hidden}
 .lp{width:30%;min-width:280px;max-width:360px;flex-shrink:0;background:#fff;border-right:1px solid var(--t08);display:flex;flex-direction:column;overflow:hidden}
 .lp-head{padding:20px 24px 14px;border-bottom:1px solid var(--t08);flex-shrink:0}
@@ -59,7 +64,6 @@ textarea{resize:vertical;min-height:76px;line-height:1.5}
 .gc-s{font-family:var(--tf);font-size:12px;color:var(--t48);line-height:1.4}
 .loading{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px}
 .ring{width:52px;height:52px;border-radius:50%;border:2px solid var(--t08);border-top-color:var(--blue);animation:spin .85s linear infinite;margin-bottom:20px}
-@keyframes spin{to{transform:rotate(360deg)}}
 .load-t{font-family:var(--df);font-size:20px;font-weight:400;letter-spacing:.231px;color:var(--nb);margin-bottom:6px}
 .load-s{font-family:var(--tf);font-size:14px;color:var(--t48);letter-spacing:-.224px}
 .result{display:flex;flex-direction:column;flex:1;overflow:hidden}

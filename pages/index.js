@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Head from 'next/head';
 
 const VOICES = [
-  { id: 'fLvpMIGwcTmxzsUF4z1U', name: 'Harry — 부드럽고 안정감 있는 한국어 남성' },
+  { id: 'fLvpMIGwcTmxzsUF4z1U', name: 'Harry — 부드럽고 안정감 있는 남성' },
 ];
 
 const LOAD_MSGS = [
@@ -13,8 +13,20 @@ const LOAD_MSGS = [
   '내레이션 스크립트를 다듬고 있어요',
 ];
 
+const STORAGE_KEY = 'edustudio_session';
+
+function saveSession(data) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (_) {}
+}
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) { return null; }
+}
+
 export default function Home() {
-  // form
   const [topic, setTopic] = useState('힉스필드 Soul · 나노바나나로 Brand Image 만들기');
   const [audience, setAudience] = useState('전사 디자이너');
   const [level, setLevel] = useState('기초');
@@ -27,37 +39,95 @@ export default function Home() {
   const [extra, setExtra] = useState('사례 중심, 실제 디자이너 공감 사례, 실습 중심 구성');
   const [voiceId, setVoiceId] = useState(VOICES[0].id);
 
-  // state
-  const [view, setView] = useState('empty'); // empty | loading | result
+  const [view, setView] = useState('empty');
   const [loadMsg, setLoadMsg] = useState(LOAD_MSGS[0]);
   const [loadTitle, setLoadTitle] = useState('시나리오 작성 중');
   const [scenario, setScenario] = useState(null);
   const [err1, setErr1] = useState('');
   const [err2, setErr2] = useState('');
-  const [step, setStep] = useState(1); // 1 or 2
-  const [voiceStatus, setVoiceStatus] = useState('wait'); // wait | running | done
-  const [audioMap, setAudioMap] = useState({}); // scene_no → url
+  const [step, setStep] = useState(1);
+  const [voiceStatus, setVoiceStatus] = useState('wait');
+  const [audioMap, setAudioMap] = useState({});
   const [voiceErrors, setVoiceErrors] = useState({});
   const [generatingScene, setGeneratingScene] = useState(null);
   const [openScenes, setOpenScenes] = useState({});
   const [btn1Loading, setBtn1Loading] = useState(false);
   const [btn2Loading, setBtn2Loading] = useState(false);
-  const [btn3Loading, setBtn3Loading] = useState(false);
-  const [videoMap, setVideoMap] = useState({}); // scene_no → url
-  const [videoStatus, setVideoStatus] = useState('wait'); // wait | running | done
-  const [videoErrors, setVideoErrors] = useState({});
+  const [savedAt, setSavedAt] = useState(null);
   const msgTimer = useRef(null);
+
+  // 페이지 로드 시 저장된 세션 복원
+  useEffect(() => {
+    const session = loadSession();
+    if (session) {
+      if (session.topic) setTopic(session.topic);
+      if (session.audience) setAudience(session.audience);
+      if (session.level) setLevel(session.level);
+      if (session.objectives) setObjectives(session.objectives);
+      if (session.duration) setDuration(session.duration);
+      if (session.sceneCount) setSceneCount(session.sceneCount);
+      if (session.tone) setTone(session.tone);
+      if (session.extra) setExtra(session.extra);
+      if (session.scenario) {
+        setScenario(session.scenario);
+        setView('result');
+        setStep(session.step || 2);
+        setVoiceStatus(session.voiceStatus || 'wait');
+        setSavedAt(session.savedAt || null);
+        // 오디오 base64 복원
+        if (session.audioBase64) {
+          const restored = {};
+          Object.entries(session.audioBase64).forEach(([no, b64]) => {
+            const byteStr = atob(b64);
+            const buf = new Uint8Array(byteStr.length);
+            for (let i = 0; i < byteStr.length; i++) buf[i] = byteStr.charCodeAt(i);
+            const blob = new Blob([buf], { type: 'audio/mpeg' });
+            restored[no] = URL.createObjectURL(blob);
+          });
+          setAudioMap(restored);
+        }
+      }
+    }
+  }, []);
+
+  // 세션 저장 함수
+  async function persistSession(updates) {
+    const session = loadSession() || {};
+    const newSession = {
+      ...session,
+      topic, audience, level, objectives, duration, sceneCount, tone, extra,
+      ...updates,
+      savedAt: new Date().toLocaleString('ko-KR'),
+    };
+    saveSession(newSession);
+    setSavedAt(newSession.savedAt);
+  }
+
+  // base64 변환
+  async function blobToBase64(blob) {
+    return new Promise((res) => {
+      const reader = new FileReader();
+      reader.onloadend = () => res(reader.result.split(',')[1]);
+      reader.readAsDataURL(blob);
+    });
+  }
 
   /* ── STEP 1: SCENARIO ── */
   async function generateScenario() {
-    if (!topic || !audience || !objectives) { setErr1('교육 주제, 학습 대상, 학습 목표를 모두 입력해주세요.'); return; }
+    if (!topic || !audience || !objectives) {
+      setErr1('교육 주제, 학습 대상, 학습 목표를 모두 입력해주세요.');
+      return;
+    }
     setErr1('');
     setBtn1Loading(true);
     setLoadTitle('시나리오 작성 중');
     setView('loading');
     let i = 0;
     setLoadMsg(LOAD_MSGS[0]);
-    msgTimer.current = setInterval(() => { i = (i + 1) % LOAD_MSGS.length; setLoadMsg(LOAD_MSGS[i]); }, 2200);
+    msgTimer.current = setInterval(() => {
+      i = (i + 1) % LOAD_MSGS.length;
+      setLoadMsg(LOAD_MSGS[i]);
+    }, 2200);
 
     try {
       const res = await fetch('/api/scenario', {
@@ -73,6 +143,13 @@ export default function Home() {
       setVoiceStatus('wait');
       setStep(2);
       setView('result');
+      await persistSession({
+        scenario: data,
+        step: 2,
+        voiceStatus: 'wait',
+        audioBase64: {},
+        topic, audience, level, objectives, duration, sceneCount, tone, extra
+      });
     } catch (e) {
       setErr1(e.message);
       setView('empty');
@@ -87,7 +164,9 @@ export default function Home() {
     setErr2('');
     setBtn2Loading(true);
     setVoiceStatus('running');
+
     const newAudioMap = { ...audioMap };
+    const newBase64Map = {};
     const newErrors = {};
 
     for (const sc of scenario.scenes) {
@@ -100,73 +179,31 @@ export default function Home() {
         });
         if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
         const blob = await res.blob();
-        newAudioMap[sc.scene_no] = URL.createObjectURL(blob);
+        const url = URL.createObjectURL(blob);
+        newAudioMap[sc.scene_no] = url;
         setAudioMap({ ...newAudioMap });
+        // base64로 변환해서 localStorage에 저장
+        const b64 = await blobToBase64(blob);
+        newBase64Map[sc.scene_no] = b64;
       } catch (e) {
         newErrors[sc.scene_no] = e.message;
         setVoiceErrors({ ...newErrors });
       }
     }
+
     setGeneratingScene(null);
     setVoiceStatus('done');
+    setStep(3);
     setBtn2Loading(false);
-  }
 
-  /* ── STEP 3: VIDEO ── */
-  async function safeJson(res) {
-    const text = await res.text();
-    try { return JSON.parse(text); }
-    catch(_) { throw new Error(`서버 오류 (${res.status}): API Route가 응답하지 않습니다. GitHub에 pages/api/video.js 파일이 있는지 확인해주세요.`); }
-  }
-
-  async function generateVideo() {
-    if (!scenario) return;
-    setBtn3Loading(true);
-    setVideoStatus('running');
-    const newVideoMap = { ...videoMap };
-    const newErrors = {};
-
-    for (const sc of scenario.scenes) {
-      setGeneratingScene(sc.scene_no);
-      try {
-        // 1. 영상 생성 요청
-        const createRes = await fetch('/api/video', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ screen_prompt: sc.screen_prompt, scene_no: sc.scene_no, action: 'create' })
-        });
-        const createData = await safeJson(createRes);
-        if (!createRes.ok) throw new Error(createData.error);
-        const { task_id } = createData;
-
-        // 2. 완료될 때까지 폴링 (최대 3분)
-        let videoUrl = null;
-        for (let i = 0; i < 36; i++) {
-          await new Promise(r => setTimeout(r, 5000));
-          const statusRes = await fetch('/api/video', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ task_id, scene_no: sc.scene_no, action: 'status' })
-          });
-          const statusData = await safeJson(statusRes);
-          if (statusData.status === 'succeed' && statusData.video_url) {
-            videoUrl = statusData.video_url;
-            break;
-          }
-          if (statusData.status === 'failed') throw new Error('영상 생성 실패');
-        }
-        if (!videoUrl) throw new Error('영상 생성 시간 초과');
-        newVideoMap[sc.scene_no] = videoUrl;
-        setVideoMap({ ...newVideoMap });
-      } catch (e) {
-        newErrors[sc.scene_no] = e.message;
-        setVideoErrors({ ...newErrors });
-      }
-    }
-    setGeneratingScene(null);
-    setVideoStatus('done');
-    setStep(4);
-    setBtn3Loading(false);
+    // 세션 저장
+    await persistSession({
+      scenario,
+      step: 3,
+      voiceStatus: 'done',
+      audioBase64: newBase64Map,
+      topic, audience, level, objectives, duration, sceneCount, tone, extra
+    });
   }
 
   function toggleScene(no) {
@@ -180,15 +217,17 @@ export default function Home() {
 
   function downloadAll() {
     Object.entries(audioMap).forEach(([no, url]) => {
-      const a = document.createElement('a'); a.href = url; a.download = `scene_${no}.mp3`; a.click();
+      const a = document.createElement('a');
+      a.href = url; a.download = `scene_${no}.mp3`; a.click();
     });
   }
 
   function reset() {
+    if (!confirm('모든 작업 내용이 삭제됩니다. 초기화할까요?')) return;
+    localStorage.removeItem(STORAGE_KEY);
     setScenario(null); setAudioMap({}); setVoiceErrors({});
-    setVideoMap({}); setVideoErrors({}); setVideoStatus('wait');
     setVoiceStatus('wait'); setStep(1); setView('empty');
-    setErr1(''); setErr2(''); setOpenScenes({});
+    setErr1(''); setErr2(''); setOpenScenes({}); setSavedAt(null);
   }
 
   const tot = scenario ? scenario.scenes.reduce((a, c) => a + (c.duration_sec || 0), 0) : 0;
@@ -213,6 +252,12 @@ export default function Home() {
               </div>
             ))}
           </div>
+          {savedAt && (
+            <div className="save-badge">
+              <span className="save-dot"/>
+              {savedAt} 저장됨
+            </div>
+          )}
         </header>
 
         <div className="app">
@@ -232,7 +277,7 @@ export default function Home() {
               <div className="r2">
                 <div className="fg">
                   <label>학습 대상</label>
-                  <input type="text" value={audience} onChange={e=>setAudience(e.target.value)} placeholder="예) 전사 디자이너"/>
+                  <input type="text" value={audience} onChange={e=>setAudience(e.target.value)}/>
                 </div>
                 <div className="fg">
                   <label>수준</label>
@@ -246,9 +291,7 @@ export default function Home() {
                 <textarea value={objectives} onChange={e=>setObjectives(e.target.value)} rows={4}/>
                 <div className="hint">핵심 목표 2~4개를 번호로 작성하세요</div>
               </div>
-
               <div className="div"/>
-
               <div className="r2">
                 <div className="fg">
                   <label>영상 길이</label>
@@ -274,12 +317,10 @@ export default function Home() {
               </div>
               <div className="fg">
                 <label>추가 요청 <span className="opt-label">(선택)</span></label>
-                <input type="text" value={extra} onChange={e=>setExtra(e.target.value)} placeholder="예) 사례 중심, 실습 중심"/>
+                <input type="text" value={extra} onChange={e=>setExtra(e.target.value)}/>
               </div>
-
               {err1 && <div className="err">{err1}</div>}
 
-              {/* STEP 2 */}
               {step >= 2 && (
                 <div className="s2-section">
                   <div className="div" style={{marginTop:16}}/>
@@ -296,40 +337,19 @@ export default function Home() {
                   {err2 && <div className="err">{err2}</div>}
                 </div>
               )}
-
-              {/* STEP 3 — 음성 완료 후 표시 */}
-              {voiceStatus === 'done' && (
-                <div className="s2-section">
-                  <div className="div" style={{marginTop:16}}/>
-                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-                    <span className="s2-tag" style={{background:'rgba(0,0,0,0.07)',color:'#1d1d1f'}}>Step 3</span>
-                    <span className="s2-label">영상 생성</span>
-                  </div>
-                  <div className="hint" style={{marginBottom:8}}>
-                    시나리오의 화면 지문을 Kling AI로 자동 영상 생성합니다.<br/>
-                    장면당 약 1~2분 소요 · 총 {scenario?.scenes.length}장면
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="lp-foot">
               <button className="btn-blue" onClick={generateScenario} disabled={btn1Loading}>
-                {btn1Loading ? '생성 중...' : '시나리오 생성하기'}
+                {btn1Loading ? '생성 중...' : scenario ? '시나리오 재생성하기' : '시나리오 생성하기'}
               </button>
               {step >= 2 && (
                 <button className="btn-dark" onClick={generateVoice} disabled={btn2Loading}>
-                  {btn2Loading ? `음성 생성 중... (${generatingScene || ''}장면)` : voiceStatus==='done' ? `음성 완성 — ${Object.keys(audioMap).length}/${scenario?.scenes.length}장면` : '음성 생성하기'}
-                </button>
-              )}
-              {voiceStatus === 'done' && (
-                <button className="btn-dark" onClick={generateVideo} disabled={btn3Loading}
-                  style={{background: videoStatus==='done' ? '#1d6f42' : '#1d1d1f'}}>
-                  {btn3Loading
-                    ? `영상 생성 중... (${generatingScene || ''}장면)`
-                    : videoStatus==='done'
-                    ? `영상 완성 — ${Object.keys(videoMap).length}/${scenario?.scenes.length}장면`
-                    : '영상 생성하기 (Kling)'}
+                  {btn2Loading
+                    ? `음성 생성 중... (${generatingScene || ''}장면)`
+                    : voiceStatus==='done'
+                    ? `음성 완성 — ${Object.keys(audioMap).length}/${scenario?.scenes.length}장면`
+                    : '음성 생성하기'}
                 </button>
               )}
             </div>
@@ -346,7 +366,7 @@ export default function Home() {
                 <div className="guide-grid">
                   <div className="gc"><div className="gc-step">Step 1</div><div className="gc-t">시나리오 생성</div><div className="gc-s">Claude가 장면별 대본과 영상 지문을 자동 작성</div></div>
                   <div className="gc"><div className="gc-step">Step 2</div><div className="gc-t">음성 생성</div><div className="gc-s">ElevenLabs로 AI 성우 내레이션 자동 생성</div></div>
-                  <div className="gc"><div className="gc-step">Step 3–5</div><div className="gc-t">영상 · 합성</div><div className="gc-s">Kling/Veo 영상 생성 후 최종 MP4로 합성</div></div>
+                  <div className="gc"><div className="gc-step">Step 3–5</div><div className="gc-t">영상 · 합성</div><div className="gc-s">미디어 업로드 후 자막·음성 자동 합성</div></div>
                 </div>
               </div>
             )}
@@ -364,13 +384,26 @@ export default function Home() {
 
                 {/* dark top */}
                 <div className="r-top">
-                  <div className="r-eyebrow">시나리오 생성 완료</div>
-                  <div className="r-title">{scenario.title}</div>
-                  <div className="r-summary">{scenario.summary}</div>
+                  <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
+                    <div>
+                      <div className="r-eyebrow">시나리오 생성 완료</div>
+                      <div className="r-title">{scenario.title}</div>
+                      <div className="r-summary">{scenario.summary}</div>
+                    </div>
+                    {savedAt && (
+                      <div className="r-saved">
+                        <span className="save-dot-w"/>
+                        {savedAt} 자동 저장
+                      </div>
+                    )}
+                  </div>
                   <div className="r-stats">
                     <div className="rs"><div className="rs-v">{scenario.scenes.length}</div><div className="rs-l">총 장면</div></div>
                     <div className="rs"><div className="rs-v">{Math.floor(tot/60)}분 {tot%60}초</div><div className="rs-l">예상 시간</div></div>
                     <div className="rs"><div className="rs-v">{chars.toLocaleString()}자</div><div className="rs-l">내레이션</div></div>
+                    {Object.keys(audioMap).length > 0 && (
+                      <div className="rs"><div className="rs-v" style={{color:'#2997ff'}}>{Object.keys(audioMap).length}</div><div className="rs-l">음성 완성</div></div>
+                    )}
                   </div>
                 </div>
 
@@ -379,7 +412,9 @@ export default function Home() {
                   <button className="act" onClick={()=>copyText(JSON.stringify(scenario,null,2),'JSON 복사 완료')}>JSON 복사 ›</button>
                   <button className="act" onClick={()=>copyText(scenario.scenes.map(sc=>`[장면 ${sc.scene_no}] ${sc.chapter}\n${sc.narration}`).join('\n\n'),'내레이션 복사 완료')}>내레이션 복사 ›</button>
                   <button className="act" onClick={()=>copyText(scenario.scenes.map(sc=>`[Scene ${sc.scene_no}] ${sc.chapter}\n${sc.screen_prompt}`).join('\n\n'),'영상 프롬프트 복사 완료')}>영상 프롬프트 복사 ›</button>
-                  {Object.keys(audioMap).length > 0 && <button className="act dl" onClick={downloadAll}>MP3 전체 다운로드 ↓</button>}
+                  {Object.keys(audioMap).length > 0 && (
+                    <button className="act dl" onClick={downloadAll}>MP3 전체 다운로드 ↓</button>
+                  )}
                   <button className="act ghost" onClick={reset}>초기화</button>
                 </div>
 
@@ -389,12 +424,11 @@ export default function Home() {
                   <span className="pp done"><span className="pdot"/>시나리오 완성</span>
                   <span className={`pp${voiceStatus==='done'?' done':voiceStatus==='running'?' running':''}`}>
                     <span className="pdot"/>
-                    {voiceStatus==='done'?`음성 완성 (${Object.keys(audioMap).length}/${scenario.scenes.length})`:voiceStatus==='running'?'음성 생성 중...':'음성 대기'}
+                    {voiceStatus==='done'
+                      ? `음성 완성 (${Object.keys(audioMap).length}/${scenario.scenes.length})`
+                      : voiceStatus==='running' ? '음성 생성 중...' : '음성 대기'}
                   </span>
-                  <span className={`pp${videoStatus==='done'?' done':videoStatus==='running'?' running':''}`}>
-                    <span className="pdot"/>
-                    {videoStatus==='done'?`영상 완성 (${Object.keys(videoMap).length}/${scenario.scenes.length})`:videoStatus==='running'?'영상 생성 중...':'영상 대기'}
-                  </span>
+                  <span className="pp"><span className="pdot"/>영상 업로드 대기</span>
                   <span className="pp"><span className="pdot"/>자막 대기</span>
                   <span className="pp"><span className="pdot"/>합성 대기</span>
                 </div>
@@ -406,9 +440,7 @@ export default function Home() {
                     const m = Math.floor((sc.duration_sec||0)/60), s = (sc.duration_sec||0)%60;
                     const isOpen = openScenes[sc.scene_no] !== false;
                     const audioUrl = audioMap[sc.scene_no];
-                    const videoUrl = videoMap[sc.scene_no];
                     const voiceErr = voiceErrors[sc.scene_no];
-                    const videoErr = videoErrors[sc.scene_no];
                     const isGen = generatingScene === sc.scene_no;
                     return (
                       <div className="sc" key={sc.scene_no}>
@@ -416,31 +448,19 @@ export default function Home() {
                           <span className="sc-num">Scene {sc.scene_no}</span>
                           <span className="sc-t">{sc.chapter}</span>
                           {audioUrl && <span style={{fontSize:11,color:'#0071e3',marginRight:4}}>♪</span>}
-                          {videoUrl && <span style={{fontSize:11,color:'#1d6f42',marginRight:4}}>▶</span>}
                           <span className="sc-d">{m>0?`${m}분 `:''}{s}초</span>
                           <span className="sc-chev" style={{transform:isOpen?'rotate(0)':'rotate(-90deg)'}}>▼</span>
                         </div>
                         {isOpen && (
                           <div className="sc-body">
                             <div>
-                              <div className="fl blue"><span className="fdot"/>화면 지문 — Kling 프롬프트</div>
+                              <div className="fl blue"><span className="fdot"/>화면 지문 — 영상 프롬프트</div>
                               <div className="ft">{sc.screen_prompt}</div>
-                              {/* 영상 플레이어 */}
-                              {btn3Loading && isGen && <div className="a-gen"><span className="spin-s"/>영상 생성 중... (약 1~2분)</div>}
-                              {videoUrl && (
-                                <div style={{marginTop:8}}>
-                                  <div className="a-row">
-                                    <span className="a-lbl">영상</span>
-                                    <video controls src={videoUrl} style={{flex:1,height:120,borderRadius:6,background:'#000'}}/>
-                                    <a className="a-dl" href={videoUrl} download={`scene_${sc.scene_no}.mp4`} target="_blank" rel="noreferrer">MP4 ↓</a>
-                                  </div>
-                                </div>
-                              )}
-                              {videoErr && <div style={{fontSize:12,color:'#c0392b',marginTop:6}}>영상 오류: {videoErr}</div>}
                             </div>
                             <div>
                               <div className="fl gray"><span className="fdot"/>내레이션 — ElevenLabs TTS</div>
                               <div className="ft narr">{sc.narration}</div>
+                              {isGen && <div className="a-gen"><span className="spin-s"/>생성 중...</div>}
                               {audioUrl && (
                                 <div className="a-row">
                                   <span className="a-lbl">음성</span>
@@ -467,20 +487,24 @@ export default function Home() {
                       <div className="npc-tool">ElevenLabs API</div>
                       <span className="npc-badge live">Active</span>
                     </div>
-                    <div className="npc live">
-                      <div className="npc-n live">Step 3 · 연동 완료</div>
-                      <div className="npc-name">영상 생성</div>
-                      <div className="npc-tool">Kling API</div>
-                      <span className="npc-badge live">Active</span>
+                    <div className="npc">
+                      <div className="npc-n">Step 3</div>
+                      <div className="npc-name">미디어 업로드</div>
+                      <div className="npc-tool">영상 · 이미지</div>
+                      <span className="npc-badge">Coming Soon</span>
                     </div>
-                    {[{n:4,name:'자막 생성',tool:'Whisper API'},{n:5,name:'최종 합성',tool:'FFmpeg'}].map(p=>(
-                      <div className="npc" key={p.n}>
-                        <div className="npc-n">Step {p.n}</div>
-                        <div className="npc-name">{p.name}</div>
-                        <div className="npc-tool">{p.tool}</div>
-                        <span className="npc-badge">Coming Soon</span>
-                      </div>
-                    ))}
+                    <div className="npc">
+                      <div className="npc-n">Step 4</div>
+                      <div className="npc-name">자막 생성</div>
+                      <div className="npc-tool">Whisper API</div>
+                      <span className="npc-badge">Coming Soon</span>
+                    </div>
+                    <div className="npc">
+                      <div className="npc-n">Step 5</div>
+                      <div className="npc-name">최종 합성</div>
+                      <div className="npc-tool">FFmpeg</div>
+                      <span className="npc-badge">Coming Soon</span>
+                    </div>
                   </div>
                 </div>
 
@@ -490,10 +514,7 @@ export default function Home() {
         </div>
       </div>
 
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg) } }
-      `}</style>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </>
   );
 }

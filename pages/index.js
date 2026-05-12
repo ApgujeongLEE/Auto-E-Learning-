@@ -56,7 +56,6 @@ export default function Home() {
   const [savedAt, setSavedAt] = useState(null);
   const msgTimer = useRef(null);
 
-  // 페이지 로드 시 저장된 세션 복원
   useEffect(() => {
     const session = loadSession();
     if (session) {
@@ -74,15 +73,16 @@ export default function Home() {
         setStep(session.step || 2);
         setVoiceStatus(session.voiceStatus || 'wait');
         setSavedAt(session.savedAt || null);
-        // 오디오 base64 복원
         if (session.audioBase64) {
           const restored = {};
           Object.entries(session.audioBase64).forEach(([no, b64]) => {
-            const byteStr = atob(b64);
-            const buf = new Uint8Array(byteStr.length);
-            for (let i = 0; i < byteStr.length; i++) buf[i] = byteStr.charCodeAt(i);
-            const blob = new Blob([buf], { type: 'audio/mpeg' });
-            restored[no] = URL.createObjectURL(blob);
+            try {
+              const byteStr = atob(b64);
+              const buf = new Uint8Array(byteStr.length);
+              for (let i = 0; i < byteStr.length; i++) buf[i] = byteStr.charCodeAt(i);
+              const blob = new Blob([buf], { type: 'audio/mpeg' });
+              restored[no] = URL.createObjectURL(blob);
+            } catch(_) {}
           });
           setAudioMap(restored);
         }
@@ -90,7 +90,6 @@ export default function Home() {
     }
   }, []);
 
-  // 세션 저장 함수
   async function persistSession(updates) {
     const session = loadSession() || {};
     const newSession = {
@@ -103,7 +102,6 @@ export default function Home() {
     setSavedAt(newSession.savedAt);
   }
 
-  // base64 변환
   async function blobToBase64(blob) {
     return new Promise((res) => {
       const reader = new FileReader();
@@ -112,7 +110,6 @@ export default function Home() {
     });
   }
 
-  /* ── STEP 1: SCENARIO ── */
   async function generateScenario() {
     if (!topic || !audience || !objectives) {
       setErr1('교육 주제, 학습 대상, 학습 목표를 모두 입력해주세요.');
@@ -144,10 +141,7 @@ export default function Home() {
       setStep(2);
       setView('result');
       await persistSession({
-        scenario: data,
-        step: 2,
-        voiceStatus: 'wait',
-        audioBase64: {},
+        scenario: data, step: 2, voiceStatus: 'wait', audioBase64: {},
         topic, audience, level, objectives, duration, sceneCount, tone, extra
       });
     } catch (e) {
@@ -158,13 +152,11 @@ export default function Home() {
     setBtn1Loading(false);
   }
 
-  /* ── STEP 2: VOICE ── */
   async function generateVoice() {
     if (!scenario) { setErr2('먼저 시나리오를 생성해주세요.'); return; }
     setErr2('');
     setBtn2Loading(true);
     setVoiceStatus('running');
-
     const newAudioMap = { ...audioMap };
     const newBase64Map = {};
     const newErrors = {};
@@ -182,7 +174,6 @@ export default function Home() {
         const url = URL.createObjectURL(blob);
         newAudioMap[sc.scene_no] = url;
         setAudioMap({ ...newAudioMap });
-        // base64로 변환해서 localStorage에 저장
         const b64 = await blobToBase64(blob);
         newBase64Map[sc.scene_no] = b64;
       } catch (e) {
@@ -190,18 +181,12 @@ export default function Home() {
         setVoiceErrors({ ...newErrors });
       }
     }
-
     setGeneratingScene(null);
     setVoiceStatus('done');
     setStep(3);
     setBtn2Loading(false);
-
-    // 세션 저장
     await persistSession({
-      scenario,
-      step: 3,
-      voiceStatus: 'done',
-      audioBase64: newBase64Map,
+      scenario, step: 3, voiceStatus: 'done', audioBase64: newBase64Map,
       topic, audience, level, objectives, duration, sceneCount, tone, extra
     });
   }
@@ -237,8 +222,6 @@ export default function Home() {
     <>
       <Head><title>EduStudio</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
       <div className="root">
-
-        {/* HEADER */}
         <header>
           <span className="logo">EduStudio</span>
           <div className="steps">
@@ -261,18 +244,15 @@ export default function Home() {
         </header>
 
         <div className="app">
-
-          {/* LEFT PANEL */}
           <div className="lp">
             <div className="lp-head">
               <div className="lp-title">콘텐츠 설정</div>
               <div className="lp-sub">교육 정보를 입력하고 AI로 생성하세요</div>
             </div>
-
             <div className="lp-body">
               <div className="fg">
                 <label>교육 주제</label>
-                <input type="text" value={topic} onChange={e=>setTopic(e.target.value)} placeholder="예) 힉스필드 Soul · 나노바나나로 Brand Image 만들기"/>
+                <input type="text" value={topic} onChange={e=>setTopic(e.target.value)}/>
               </div>
               <div className="r2">
                 <div className="fg">
@@ -320,7 +300,6 @@ export default function Home() {
                 <input type="text" value={extra} onChange={e=>setExtra(e.target.value)}/>
               </div>
               {err1 && <div className="err">{err1}</div>}
-
               {step >= 2 && (
                 <div className="s2-section">
                   <div className="div" style={{marginTop:16}}/>
@@ -338,26 +317,19 @@ export default function Home() {
                 </div>
               )}
             </div>
-
             <div className="lp-foot">
               <button className="btn-blue" onClick={generateScenario} disabled={btn1Loading}>
                 {btn1Loading ? '생성 중...' : scenario ? '시나리오 재생성하기' : '시나리오 생성하기'}
               </button>
               {step >= 2 && (
                 <button className="btn-dark" onClick={generateVoice} disabled={btn2Loading}>
-                  {btn2Loading
-                    ? `음성 생성 중... (${generatingScene || ''}장면)`
-                    : voiceStatus==='done'
-                    ? `음성 완성 — ${Object.keys(audioMap).length}/${scenario?.scenes.length}장면`
-                    : '음성 생성하기'}
+                  {btn2Loading ? `음성 생성 중... (${generatingScene||''}장면)` : voiceStatus==='done' ? `음성 완성 — ${Object.keys(audioMap).length}/${scenario?.scenes.length}장면` : '음성 생성하기'}
                 </button>
               )}
             </div>
           </div>
 
-          {/* RIGHT PANEL */}
           <div className="rp">
-
             {view === 'empty' && (
               <div className="empty">
                 <div className="empty-icon">✦</div>
@@ -370,7 +342,6 @@ export default function Home() {
                 </div>
               </div>
             )}
-
             {view === 'loading' && (
               <div className="loading">
                 <div className="ring"/>
@@ -378,11 +349,8 @@ export default function Home() {
                 <div className="load-s">{loadMsg}</div>
               </div>
             )}
-
             {view === 'result' && scenario && (
               <div className="result">
-
-                {/* dark top */}
                 <div className="r-top">
                   <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
                     <div>
@@ -406,42 +374,32 @@ export default function Home() {
                     )}
                   </div>
                 </div>
-
-                {/* actions */}
                 <div className="r-actions">
                   <button className="act" onClick={()=>copyText(JSON.stringify(scenario,null,2),'JSON 복사 완료')}>JSON 복사 ›</button>
                   <button className="act" onClick={()=>copyText(scenario.scenes.map(sc=>`[장면 ${sc.scene_no}] ${sc.chapter}\n${sc.narration}`).join('\n\n'),'내레이션 복사 완료')}>내레이션 복사 ›</button>
                   <button className="act" onClick={()=>copyText(scenario.scenes.map(sc=>`[Scene ${sc.scene_no}] ${sc.chapter}\n${sc.screen_prompt}`).join('\n\n'),'영상 프롬프트 복사 완료')}>영상 프롬프트 복사 ›</button>
-                  {Object.keys(audioMap).length > 0 && (
-                    <button className="act dl" onClick={downloadAll}>MP3 전체 다운로드 ↓</button>
-                  )}
+                  {Object.keys(audioMap).length > 0 && <button className="act dl" onClick={downloadAll}>MP3 전체 다운로드 ↓</button>}
                   <button className="act ghost" onClick={reset}>초기화</button>
                 </div>
-
-                {/* pipeline */}
                 <div className="p-row">
                   <span className="p-label">진행</span>
                   <span className="pp done"><span className="pdot"/>시나리오 완성</span>
                   <span className={`pp${voiceStatus==='done'?' done':voiceStatus==='running'?' running':''}`}>
                     <span className="pdot"/>
-                    {voiceStatus==='done'
-                      ? `음성 완성 (${Object.keys(audioMap).length}/${scenario.scenes.length})`
-                      : voiceStatus==='running' ? '음성 생성 중...' : '음성 대기'}
+                    {voiceStatus==='done'?`음성 완성 (${Object.keys(audioMap).length}/${scenario.scenes.length})`:voiceStatus==='running'?'음성 생성 중...':'음성 대기'}
                   </span>
                   <span className="pp"><span className="pdot"/>영상 업로드 대기</span>
                   <span className="pp"><span className="pdot"/>자막 대기</span>
                   <span className="pp"><span className="pdot"/>합성 대기</span>
                 </div>
-
-                {/* scenes */}
                 <div className="scenes-wrap">
                   <div className="scenes-lbl">장면별 시나리오</div>
                   {scenario.scenes.map(sc => {
-                    const m = Math.floor((sc.duration_sec||0)/60), s = (sc.duration_sec||0)%60;
-                    const isOpen = openScenes[sc.scene_no] !== false;
-                    const audioUrl = audioMap[sc.scene_no];
-                    const voiceErr = voiceErrors[sc.scene_no];
-                    const isGen = generatingScene === sc.scene_no;
+                    const m=Math.floor((sc.duration_sec||0)/60), s=(sc.duration_sec||0)%60;
+                    const isOpen=openScenes[sc.scene_no]!==false;
+                    const audioUrl=audioMap[sc.scene_no];
+                    const voiceErr=voiceErrors[sc.scene_no];
+                    const isGen=generatingScene===sc.scene_no;
                     return (
                       <div className="sc" key={sc.scene_no}>
                         <div className="sc-h" onClick={()=>toggleScene(sc.scene_no)}>
@@ -476,8 +434,6 @@ export default function Home() {
                     );
                   })}
                 </div>
-
-                {/* next pipeline */}
                 <div className="np">
                   <div className="np-t">자동화 파이프라인</div>
                   <div className="np-grid">
@@ -507,13 +463,11 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-
               </div>
             )}
           </div>
         </div>
       </div>
-
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </>
   );

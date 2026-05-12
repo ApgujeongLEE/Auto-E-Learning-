@@ -108,6 +108,22 @@ textarea{resize:vertical;min-height:76px;line-height:1.5}
 .vc-toggle{width:100%;background:none;border:none;font-family:var(--tf);font-size:11px;color:var(--lb);cursor:pointer;padding:4px 0;text-align:left;letter-spacing:-.12px}
 .vc-toggle:hover{text-decoration:underline}
 .vc-prompt-box{font-family:var(--tf);font-size:11px;color:var(--t48);background:var(--lg);border-radius:6px;padding:8px 10px;margin-top:6px;line-height:1.6;letter-spacing:-.12px}
+/* 미디어 업로드 */
+.vc-media-fill{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover}
+.vc-empty-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:6px;color:rgba(255,255,255,.4);font-family:var(--tf);font-size:12px;cursor:pointer;text-align:center;width:80%}
+.vc-empty-hint span:first-child{font-size:20px}
+.vc-kling-badge{position:absolute;top:10px;right:10px;font-family:var(--tf);font-size:10px;font-weight:600;color:#fff;background:rgba(29,111,66,.85);border-radius:20px;padding:2px 8px;z-index:2}
+.vc-media-badge{position:absolute;bottom:8px;left:8px;font-family:var(--tf);font-size:10px;color:rgba(255,255,255,.8);background:rgba(0,0,0,.5);border-radius:20px;padding:2px 8px;z-index:2;max-width:80%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vc-actions{display:flex;gap:6px;padding:8px 10px;background:var(--lg);border-bottom:1px solid var(--t08)}
+.vc-act-btn{flex:1;padding:6px 4px;border:none;border-radius:6px;font-family:var(--tf);font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;letter-spacing:-.12px}
+.vc-act-btn.upload{background:#fff;color:var(--nb);border:1px solid rgba(0,0,0,.12)}
+.vc-act-btn.upload:hover{background:var(--lg)}
+.vc-act-btn.kling{background:var(--blue);color:#fff}
+.vc-act-btn.kling:hover{background:#0077ed}
+.vc-act-btn.kling:disabled{background:rgba(0,113,227,.35);cursor:not-allowed}
+.vc-act-btn.remove{flex:0 0 32px;background:#fff;color:#c0392b;border:1px solid rgba(192,57,43,.2);font-size:13px}
+.vc-act-btn.remove:hover{background:rgba(192,57,43,.05)}
+@media(max-width:860px){.lp{width:35%;min-width:260px}.guide-grid{grid-template-columns:1fr 1fr}.np-grid{grid-template-columns:1fr 1fr}}
 .a-row{display:flex;align-items:center;gap:8px;margin-top:8px}
 .a-lbl{font-family:var(--tf);font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--t48);white-space:nowrap}
 .a-dl{font-family:var(--tf);font-size:12px;color:var(--lb);text-decoration:none;white-space:nowrap}

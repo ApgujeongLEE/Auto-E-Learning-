@@ -54,6 +54,10 @@ export default function Home() {
   const [btn1Loading, setBtn1Loading] = useState(false);
   const [btn2Loading, setBtn2Loading] = useState(false);
   const [savedAt, setSavedAt] = useState(null);
+  const [mediaMap, setMediaMap] = useState({}); // scene_no → { type, url, name }
+  const [klingMap, setKlingMap] = useState({});  // scene_no → video url
+  const [klingGenerating, setKlingGenerating] = useState({}); // scene_no → bool
+  const fileInputRefs = useRef({});
   const msgTimer = useRef(null);
 
   useEffect(() => {
@@ -189,6 +193,54 @@ export default function Home() {
       scenario, step: 3, voiceStatus: 'done', audioBase64: newBase64Map,
       topic, audience, level, objectives, duration, sceneCount, tone, extra
     });
+  }
+
+  function handleMediaUpload(sceneNo, file) {
+    if (!file) return;
+    const type = file.type.startsWith('video') ? 'video' : 'image';
+    const url = URL.createObjectURL(file);
+    setMediaMap(prev => ({ ...prev, [sceneNo]: { type, url, name: file.name } }));
+  }
+
+  function removeMedia(sceneNo) {
+    setMediaMap(prev => { const n={...prev}; delete n[sceneNo]; return n; });
+  }
+
+  async function generateKlingScene(sc) {
+    setKlingGenerating(prev => ({ ...prev, [sc.scene_no]: true }));
+    try {
+      const createRes = await fetch('/api/video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ screen_prompt: sc.screen_prompt, scene_no: sc.scene_no, action: 'create' })
+      });
+      const text = await createRes.text();
+      let createData;
+      try { createData = JSON.parse(text); }
+      catch(_) { throw new Error('서버 응답 오류. video.js 파일을 확인해주세요.'); }
+      if (!createRes.ok) throw new Error(createData.error);
+      const { task_id } = createData;
+
+      let videoUrl = null;
+      for (let i = 0; i < 36; i++) {
+        await new Promise(r => setTimeout(r, 5000));
+        const statusRes = await fetch('/api/video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task_id, scene_no: sc.scene_no, action: 'status' })
+        });
+        const statusData = await statusRes.json();
+        if (statusData.status === 'succeed' && statusData.video_url) {
+          videoUrl = statusData.video_url; break;
+        }
+        if (statusData.status === 'failed') throw new Error('Kling 영상 생성 실패');
+      }
+      if (!videoUrl) throw new Error('영상 생성 시간 초과');
+      setKlingMap(prev => ({ ...prev, [sc.scene_no]: videoUrl }));
+    } catch(e) {
+      alert(`장면 ${sc.scene_no} 오류: ${e.message}`);
+    }
+    setKlingGenerating(prev => ({ ...prev, [sc.scene_no]: false }));
   }
 
   function toggleScene(no) {
@@ -401,37 +453,82 @@ export default function Home() {
                     const audioUrl=audioMap[sc.scene_no];
                     const voiceErr=voiceErrors[sc.scene_no];
                     const isGen=generatingScene===sc.scene_no;
+                    const media=mediaMap[sc.scene_no];
+                    const klingUrl=klingMap[sc.scene_no];
+                    const isKling=klingGenerating[sc.scene_no];
                     return (
                       <div className="vc" key={sc.scene_no}>
-                        {/* 16:9 프리뷰 영역 */}
-                        <div className="vc-preview">
+                        {/* 16:9 프리뷰 */}
+                        <div className="vc-preview" onClick={()=>!media&&!klingUrl&&fileInputRefs.current[sc.scene_no]?.click()}>
+
+                          {/* 미디어 미리보기 */}
+                          {klingUrl ? (
+                            <video src={klingUrl} autoPlay muted loop className="vc-media-fill"/>
+                          ) : media?.type==='video' ? (
+                            <video src={media.url} autoPlay muted loop className="vc-media-fill"/>
+                          ) : media?.type==='image' ? (
+                            <img src={media.url} alt="preview" className="vc-media-fill"/>
+                          ) : (
+                            <div className="vc-empty-hint">
+                              {isKling ? <span className="spin-s-w"/> : '＋'}
+                              <span>{isKling?`Kling 생성 중...`:'클릭하여 미디어 업로드'}</span>
+                            </div>
+                          )}
+
+                          {/* 오버레이 배지 */}
                           <div className="vc-overlay-tl">
                             <span className="vc-num">Scene {sc.scene_no}</span>
                             <span className="vc-dur">{m>0?`${m}분 `:''}{s}초</span>
                           </div>
                           {audioUrl && <span className="vc-audio-badge">♪ 음성</span>}
-                          {isGen && <div className="vc-gen"><span className="spin-s-w"/>생성 중...</div>}
-                          <div className="vc-prompt-text">{sc.screen_prompt}</div>
+                          {klingUrl && <span className="vc-kling-badge">🎬 Kling</span>}
+                          {media && !klingUrl && <span className="vc-media-badge">{media.type==='video'?'🎥':'🖼'} {media.name}</span>}
+
+                          {/* 생성 중 */}
+                          {isGen && <div className="vc-gen"><span className="spin-s-w"/>음성 생성 중...</div>}
+
+                          {/* 미디어 없을 때 프롬프트 텍스트 */}
+                          {!media && !klingUrl && !isKling && (
+                            <div className="vc-prompt-text">{sc.screen_prompt}</div>
+                          )}
                         </div>
-                        {/* 카드 정보 영역 */}
+
+                        {/* 카드 액션 버튼 */}
+                        <div className="vc-actions">
+                          <button className="vc-act-btn upload" onClick={()=>fileInputRefs.current[sc.scene_no]?.click()}>
+                            📁 {media ? '교체' : '업로드'}
+                          </button>
+                          <button className="vc-act-btn kling" onClick={()=>generateKlingScene(sc)} disabled={isKling}>
+                            {isKling ? '생성 중...' : '🎬 Kling 생성'}
+                          </button>
+                          {(media||klingUrl) && (
+                            <button className="vc-act-btn remove" onClick={()=>{removeMedia(sc.scene_no);setKlingMap(p=>{const n={...p};delete n[sc.scene_no];return n;})}}>✕</button>
+                          )}
+                          <input
+                            ref={el=>fileInputRefs.current[sc.scene_no]=el}
+                            type="file" accept="image/*,video/*" style={{display:'none'}}
+                            onChange={e=>handleMediaUpload(sc.scene_no,e.target.files[0])}
+                          />
+                        </div>
+
+                        {/* 카드 정보 */}
                         <div className="vc-info">
                           <div className="vc-chapter">{sc.chapter}</div>
                           <div className="vc-narr">{sc.narration}</div>
-                          {/* 오디오 플레이어 */}
                           {audioUrl && (
                             <div className="vc-audio">
                               <audio controls src={audioUrl} style={{width:'100%',height:28}}/>
                               <a className="a-dl" href={audioUrl} download={`scene_${sc.scene_no}.mp3`} style={{marginTop:4,display:'block',textAlign:'right'}}>MP3 ↓</a>
                             </div>
                           )}
-                          {voiceErr && <div style={{fontSize:11,color:'#c0392b',marginTop:4}}>오류: {voiceErr}</div>}
-                          {/* 영상 프롬프트 토글 */}
-                          <button className="vc-toggle" onClick={()=>toggleScene(sc.scene_no)}>
-                            {isOpen ? '영상 프롬프트 닫기 ▲' : '영상 프롬프트 보기 ▼'}
-                          </button>
-                          {isOpen && (
-                            <div className="vc-prompt-box">{sc.screen_prompt}</div>
+                          {klingUrl && (
+                            <a className="a-dl" href={klingUrl} download={`scene_${sc.scene_no}.mp4`} target="_blank" rel="noreferrer" style={{display:'block',marginTop:4,textAlign:'right'}}>MP4 ↓</a>
                           )}
+                          {voiceErr && <div style={{fontSize:11,color:'#c0392b',marginTop:4}}>오류: {voiceErr}</div>}
+                          <button className="vc-toggle" onClick={()=>toggleScene(sc.scene_no)}>
+                            {isOpen?'영상 프롬프트 닫기 ▲':'영상 프롬프트 보기 ▼'}
+                          </button>
+                          {isOpen && <div className="vc-prompt-box">{sc.screen_prompt}</div>}
                         </div>
                       </div>
                     );

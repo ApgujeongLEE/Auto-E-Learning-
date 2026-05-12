@@ -18,23 +18,21 @@ export default async function handler(req, res) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'kling',
-          task_type: 'video_generation',
+          model: 'seedance',
+          task_type: 'seedance-2-fast',
           input: {
             prompt: screen_prompt,
-            negative_prompt: 'blurry, low quality, distorted',
+            mode: 'text_to_video',
             duration: 5,
             aspect_ratio: '16:9',
-            mode: 'std',
-            version: '1.6',
           }
         })
       });
 
       const data = await response.json();
-      console.log('PiAPI create response:', JSON.stringify(data));
+      console.log('Seedance create response:', JSON.stringify(data));
 
-      if (data.code !== 200) throw new Error(data.message || `PiAPI 오류: ${JSON.stringify(data)}`);
+      if (data.code !== 200) throw new Error(data.message || `Seedance 오류: ${JSON.stringify(data)}`);
       return res.status(200).json({ task_id: data.data.task_id, scene_no });
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -49,14 +47,13 @@ export default async function handler(req, res) {
       });
 
       const data = await response.json();
-      console.log('PiAPI status response:', JSON.stringify(data));
+      console.log('Seedance status response:', JSON.stringify(data));
 
       if (data.code !== 200) throw new Error(data.message || '상태 확인 실패');
 
       const task = data.data;
       const status = task.status; // pending / processing / completed / failed
 
-      // video_url 위치 탐색
       const videoUrl =
         task.output?.video_url ||
         task.output?.works?.[0]?.video?.resource ||
@@ -68,7 +65,7 @@ export default async function handler(req, res) {
         video_url: videoUrl,
         raw_status: status,
         scene_no,
-        debug: { output: task.output }
+        debug: { output: task.output, error: task.error }
       });
     } catch (err) {
       return res.status(500).json({ error: err.message });

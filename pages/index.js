@@ -394,45 +394,49 @@ export default function Home() {
                 </div>
                 <div className="scenes-wrap">
                   <div className="scenes-lbl">장면별 시나리오</div>
+                  <div className="sc-grid">
                   {scenario.scenes.map(sc => {
                     const m=Math.floor((sc.duration_sec||0)/60), s=(sc.duration_sec||0)%60;
-                    const isOpen=openScenes[sc.scene_no]!==false;
+                    const isOpen=openScenes[sc.scene_no]===true;
                     const audioUrl=audioMap[sc.scene_no];
                     const voiceErr=voiceErrors[sc.scene_no];
                     const isGen=generatingScene===sc.scene_no;
                     return (
-                      <div className="sc" key={sc.scene_no}>
-                        <div className="sc-h" onClick={()=>toggleScene(sc.scene_no)}>
-                          <span className="sc-num">Scene {sc.scene_no}</span>
-                          <span className="sc-t">{sc.chapter}</span>
-                          {audioUrl && <span style={{fontSize:11,color:'#0071e3',marginRight:4}}>♪</span>}
-                          <span className="sc-d">{m>0?`${m}분 `:''}{s}초</span>
-                          <span className="sc-chev" style={{transform:isOpen?'rotate(0)':'rotate(-90deg)'}}>▼</span>
-                        </div>
-                        {isOpen && (
-                          <div className="sc-body">
-                            <div>
-                              <div className="fl blue"><span className="fdot"/>화면 지문 — 영상 프롬프트</div>
-                              <div className="ft">{sc.screen_prompt}</div>
-                            </div>
-                            <div>
-                              <div className="fl gray"><span className="fdot"/>내레이션 — ElevenLabs TTS</div>
-                              <div className="ft narr">{sc.narration}</div>
-                              {isGen && <div className="a-gen"><span className="spin-s"/>생성 중...</div>}
-                              {audioUrl && (
-                                <div className="a-row">
-                                  <span className="a-lbl">음성</span>
-                                  <audio controls src={audioUrl} style={{flex:1,height:30}}/>
-                                  <a className="a-dl" href={audioUrl} download={`scene_${sc.scene_no}.mp3`}>MP3 ↓</a>
-                                </div>
-                              )}
-                              {voiceErr && <div style={{fontSize:12,color:'#c0392b',marginTop:6}}>오류: {voiceErr}</div>}
-                            </div>
+                      <div className="vc" key={sc.scene_no}>
+                        {/* 16:9 프리뷰 영역 */}
+                        <div className="vc-preview">
+                          <div className="vc-overlay-tl">
+                            <span className="vc-num">Scene {sc.scene_no}</span>
+                            <span className="vc-dur">{m>0?`${m}분 `:''}{s}초</span>
                           </div>
-                        )}
+                          {audioUrl && <span className="vc-audio-badge">♪ 음성</span>}
+                          {isGen && <div className="vc-gen"><span className="spin-s-w"/>생성 중...</div>}
+                          <div className="vc-prompt-text">{sc.screen_prompt}</div>
+                        </div>
+                        {/* 카드 정보 영역 */}
+                        <div className="vc-info">
+                          <div className="vc-chapter">{sc.chapter}</div>
+                          <div className="vc-narr">{sc.narration}</div>
+                          {/* 오디오 플레이어 */}
+                          {audioUrl && (
+                            <div className="vc-audio">
+                              <audio controls src={audioUrl} style={{width:'100%',height:28}}/>
+                              <a className="a-dl" href={audioUrl} download={`scene_${sc.scene_no}.mp3`} style={{marginTop:4,display:'block',textAlign:'right'}}>MP3 ↓</a>
+                            </div>
+                          )}
+                          {voiceErr && <div style={{fontSize:11,color:'#c0392b',marginTop:4}}>오류: {voiceErr}</div>}
+                          {/* 영상 프롬프트 토글 */}
+                          <button className="vc-toggle" onClick={()=>toggleScene(sc.scene_no)}>
+                            {isOpen ? '영상 프롬프트 닫기 ▲' : '영상 프롬프트 보기 ▼'}
+                          </button>
+                          {isOpen && (
+                            <div className="vc-prompt-box">{sc.screen_prompt}</div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
+                  </div>
                 </div>
                 <div className="np">
                   <div className="np-t">자동화 파이프라인</div>

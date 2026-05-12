@@ -32,7 +32,9 @@ export default async function handler(req, res) {
       });
 
       const data = await response.json();
-      if (data.code !== 200) throw new Error(data.message || 'PiAPI 영상 생성 요청 실패');
+      console.log('PiAPI create response:', JSON.stringify(data));
+
+      if (data.code !== 200) throw new Error(data.message || `PiAPI 오류: ${JSON.stringify(data)}`);
       return res.status(200).json({ task_id: data.data.task_id, scene_no });
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -47,14 +49,26 @@ export default async function handler(req, res) {
       });
 
       const data = await response.json();
+      console.log('PiAPI status response:', JSON.stringify(data));
+
       if (data.code !== 200) throw new Error(data.message || '상태 확인 실패');
 
       const task = data.data;
-      // status: pending / processing / failed / completed
+      const status = task.status; // pending / processing / completed / failed
+
+      // video_url 위치 탐색
+      const videoUrl =
+        task.output?.video_url ||
+        task.output?.works?.[0]?.video?.resource ||
+        task.output?.works?.[0]?.video?.url ||
+        null;
+
       return res.status(200).json({
-        status: task.status === 'completed' ? 'succeed' : task.status,
-        video_url: task.output?.video_url || null,
-        scene_no
+        status: status === 'completed' ? 'succeed' : status,
+        video_url: videoUrl,
+        raw_status: status,
+        scene_no,
+        debug: { output: task.output }
       });
     } catch (err) {
       return res.status(500).json({ error: err.message });

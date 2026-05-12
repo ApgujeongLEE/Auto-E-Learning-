@@ -217,25 +217,29 @@ export default function Home() {
       const text = await createRes.text();
       let createData;
       try { createData = JSON.parse(text); }
-      catch(_) { throw new Error('서버 응답 오류. video.js 파일을 확인해주세요.'); }
+      catch(_) { throw new Error('서버 응답 오류: ' + text.slice(0, 200)); }
       if (!createRes.ok) throw new Error(createData.error);
       const { task_id } = createData;
 
       let videoUrl = null;
-      for (let i = 0; i < 36; i++) {
+      for (let i = 0; i < 60; i++) {
         await new Promise(r => setTimeout(r, 5000));
         const statusRes = await fetch('/api/video', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ task_id, scene_no: sc.scene_no, action: 'status' })
         });
-        const statusData = await statusRes.json();
+        const statusText = await statusRes.text();
+        let statusData;
+        try { statusData = JSON.parse(statusText); }
+        catch(_) { continue; }
+        console.log(`[Scene ${sc.scene_no}] ${i+1}/60:`, statusData);
         if (statusData.status === 'succeed' && statusData.video_url) {
           videoUrl = statusData.video_url; break;
         }
-        if (statusData.status === 'failed') throw new Error('Kling 영상 생성 실패');
+        if (statusData.status === 'failed') throw new Error(`영상 생성 실패. debug: ${JSON.stringify(statusData.debug)}`);
       }
-      if (!videoUrl) throw new Error('영상 생성 시간 초과');
+      if (!videoUrl) throw new Error('영상 생성 시간 초과 (5분). PiAPI Task History에서 결과를 확인해주세요.');
       setKlingMap(prev => ({ ...prev, [sc.scene_no]: videoUrl }));
     } catch(e) {
       alert(`장면 ${sc.scene_no} 오류: ${e.message}`);

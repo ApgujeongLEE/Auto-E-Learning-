@@ -417,7 +417,7 @@ export default function Home() {
       <Head><title>EduStudio</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
       <div className="root">
         <header>
-          <span className="logo">EduStudio</span>
+          <span className="logo">EduStudio <span style={{fontSize:9,opacity:0.4,fontWeight:400}}>v75974</span></span>
           <div className="steps">
             {[{n:1,name:'시나리오'},{n:2,name:'음성'},{n:3,name:'영상'},{n:4,name:'자막'},{n:5,name:'합성'}].map((s,i)=>(
               <div key={s.n} style={{display:'flex',alignItems:'center',gap:0}}>

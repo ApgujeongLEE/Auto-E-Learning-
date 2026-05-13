@@ -506,12 +506,7 @@ export default function Home() {
                             <video src={media.url} autoPlay muted loop className="vc-media-fill"/>
                           ) : media?.type==='image' ? (
                             <img src={media.url} alt="preview" className="vc-media-fill"/>
-                          ) : (
-                            <div className="vc-empty-hint">
-                              {isKling ? <span className="spin-s-w"/> : '＋'}
-                              <span>{isKling ? (klingProgress[sc.scene_no] || 'Seedance 생성 중...') : '클릭하여 미디어 업로드'}</span>
-                            </div>
-                          )}
+                          ) : null}
 
                           {/* 오버레이 배지 */}
                           <div className="vc-overlay-tl">

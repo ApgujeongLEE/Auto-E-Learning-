@@ -59,8 +59,10 @@ export default function Home() {
   const [klingGenerating, setKlingGenerating] = useState({});
   const [klingProgress, setKlingProgress] = useState({});
   const [lastTaskIds, setLastTaskIds] = useState({});
-  const [playingMap, setPlayingMap] = useState({});   // scene_no → bool
-  const [durationMap, setDurationMap] = useState({}); // scene_no → 초
+  const [playingMap, setPlayingMap] = useState({});
+  const [durationMap, setDurationMap] = useState({});
+  const [editMap, setEditMap] = useState({});
+  const [scenarioEdits, setScenarioEdits] = useState({});
   const videoRefs = useRef({});
   const fileInputRefs = useRef({});
   const msgTimer = useRef(null);
@@ -218,6 +220,34 @@ export default function Home() {
       scenario, step: 3, voiceStatus: 'done', audioBase64: newBase64Map,
       topic, audience, level, objectives, duration, sceneCount, tone, extra
     });
+  }
+
+  function startEdit(sc) {
+    setEditMap(p=>({...p,[sc.scene_no]:true}));
+    setScenarioEdits(p=>({...p,[sc.scene_no]:{
+      narration: p[sc.scene_no]?.narration ?? sc.narration,
+      screen_prompt: p[sc.scene_no]?.screen_prompt ?? sc.screen_prompt,
+      chapter: p[sc.scene_no]?.chapter ?? sc.chapter,
+    }}));
+  }
+
+  function saveEdit(sceneNo) {
+    const edit = scenarioEdits[sceneNo];
+    if (!edit || !scenario) return;
+    // scenario 데이터 업데이트
+    const updatedScenes = scenario.scenes.map(s =>
+      s.scene_no === sceneNo ? { ...s, ...edit } : s
+    );
+    setScenario({ ...scenario, scenes: updatedScenes });
+    setEditMap(p=>({...p,[sceneNo]:false}));
+  }
+
+  function cancelEdit(sceneNo) {
+    setEditMap(p=>({...p,[sceneNo]:false}));
+  }
+
+  function updateEdit(sceneNo, field, value) {
+    setScenarioEdits(p=>({...p,[sceneNo]:{...p[sceneNo],[field]:value}}));
   }
 
   function togglePlay(sceneNo) {
@@ -677,18 +707,67 @@ export default function Home() {
 
                         {/* 카드 정보 */}
                         <div className="vc-info">
-                          <div className="vc-chapter">{sc.chapter}</div>
-                          <div className="vc-narr">{sc.narration}</div>
-                          {audioUrl && (
-                            <div className="vc-audio">
-                              <audio controls src={audioUrl} style={{width:'100%',height:28}}/>
-                              <a className="a-dl" href={audioUrl} download={`scene_${sc.scene_no}.mp3`} style={{marginTop:4,display:'block',textAlign:'right'}}>MP3 ↓</a>
+                          {editMap[sc.scene_no] ? (
+                            /* 편집 모드 */
+                            <div style={{display:'grid',gap:8}}>
+                              <div>
+                                <div style={{fontFamily:'var(--tf)',fontSize:10,fontWeight:600,letterSpacing:'.06em',textTransform:'uppercase',color:'var(--t48)',marginBottom:4}}>챕터명</div>
+                                <input type="text"
+                                  value={scenarioEdits[sc.scene_no]?.chapter ?? sc.chapter}
+                                  onChange={e=>updateEdit(sc.scene_no,'chapter',e.target.value)}
+                                  style={{fontSize:13,padding:'7px 10px'}}
+                                />
+                              </div>
+                              <div>
+                                <div style={{fontFamily:'var(--tf)',fontSize:10,fontWeight:600,letterSpacing:'.06em',textTransform:'uppercase',color:'var(--blue)',marginBottom:4}}>영상 프롬프트 (Seedance)</div>
+                                <textarea
+                                  value={scenarioEdits[sc.scene_no]?.screen_prompt ?? sc.screen_prompt}
+                                  onChange={e=>updateEdit(sc.scene_no,'screen_prompt',e.target.value)}
+                                  style={{fontSize:12,padding:'7px 10px',minHeight:72,lineHeight:1.5}}
+                                />
+                              </div>
+                              <div>
+                                <div style={{fontFamily:'var(--tf)',fontSize:10,fontWeight:600,letterSpacing:'.06em',textTransform:'uppercase',color:'var(--t48)',marginBottom:4}}>내레이션 (ElevenLabs)</div>
+                                <textarea
+                                  value={scenarioEdits[sc.scene_no]?.narration ?? sc.narration}
+                                  onChange={e=>updateEdit(sc.scene_no,'narration',e.target.value)}
+                                  style={{fontSize:12,padding:'7px 10px',minHeight:88,lineHeight:1.6}}
+                                />
+                              </div>
+                              <div style={{display:'flex',gap:6}}>
+                                <button onClick={()=>saveEdit(sc.scene_no)}
+                                  style={{flex:1,padding:'8px',background:'var(--blue)',color:'#fff',border:'none',borderRadius:6,fontFamily:'var(--tf)',fontSize:12,cursor:'pointer'}}>
+                                  저장
+                                </button>
+                                <button onClick={()=>cancelEdit(sc.scene_no)}
+                                  style={{flex:1,padding:'8px',background:'var(--lg)',color:'var(--t48)',border:'1px solid rgba(0,0,0,.1)',borderRadius:6,fontFamily:'var(--tf)',fontSize:12,cursor:'pointer'}}>
+                                  취소
+                                </button>
+                              </div>
                             </div>
+                          ) : (
+                            /* 보기 모드 */
+                            <>
+                              <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8,marginBottom:4}}>
+                                <div className="vc-chapter">{sc.chapter}</div>
+                                <button onClick={()=>startEdit(sc)}
+                                  style={{flexShrink:0,background:'none',border:'1px solid rgba(0,0,0,.1)',borderRadius:6,padding:'3px 8px',fontFamily:'var(--tf)',fontSize:10,color:'var(--t48)',cursor:'pointer',whiteSpace:'nowrap'}}>
+                                  ✏️ 편집
+                                </button>
+                              </div>
+                              <div className="vc-narr">{sc.narration}</div>
+                              {audioUrl && (
+                                <div className="vc-audio">
+                                  <audio controls src={audioUrl} style={{width:'100%',height:28}}/>
+                                  <a className="a-dl" href={audioUrl} download={`scene_${sc.scene_no}.mp3`} style={{marginTop:4,display:'block',textAlign:'right'}}>MP3 ↓</a>
+                                </div>
+                              )}
+                              {klingUrl && (
+                                <a className="a-dl" href={klingUrl} download={`scene_${sc.scene_no}.mp4`} target="_blank" rel="noreferrer" style={{display:'block',marginTop:4,textAlign:'right'}}>MP4 ↓</a>
+                              )}
+                              {voiceErr && <div style={{fontSize:11,color:'#c0392b',marginTop:4}}>오류: {voiceErr}</div>}
+                            </>
                           )}
-                          {klingUrl && (
-                            <a className="a-dl" href={klingUrl} download={`scene_${sc.scene_no}.mp4`} target="_blank" rel="noreferrer" style={{display:'block',marginTop:4,textAlign:'right'}}>MP4 ↓</a>
-                          )}
-                          {voiceErr && <div style={{fontSize:11,color:'#c0392b',marginTop:4}}>오류: {voiceErr}</div>}
                         </div>
                       </div>
                     );

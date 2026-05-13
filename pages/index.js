@@ -206,8 +206,11 @@ export default function Home() {
     setMediaMap(prev => { const n={...prev}; delete n[sceneNo]; return n; });
   }
 
+  const [klingProgress, setKlingProgress] = useState({}); // scene_no → 진행 텍스트
+
   async function generateKlingScene(sc) {
     setKlingGenerating(prev => ({ ...prev, [sc.scene_no]: true }));
+    setKlingProgress(prev => ({ ...prev, [sc.scene_no]: '요청 전송 중...' }));
     try {
       const createRes = await fetch('/api/video', {
         method: 'POST',
@@ -223,6 +226,8 @@ export default function Home() {
 
       let videoUrl = null;
       for (let i = 0; i < 60; i++) {
+        const elapsed = ((i + 1) * 5);
+        setKlingProgress(prev => ({ ...prev, [sc.scene_no]: `생성 중... ${elapsed}초 경과 (최대 5분)` }));
         await new Promise(r => setTimeout(r, 5000));
         const statusRes = await fetch('/api/video', {
           method: 'POST',
@@ -237,14 +242,15 @@ export default function Home() {
         if (statusData.status === 'succeed' && statusData.video_url) {
           videoUrl = statusData.video_url; break;
         }
-        if (statusData.status === 'failed') throw new Error(`영상 생성 실패. debug: ${JSON.stringify(statusData.debug)}`);
+        if (statusData.status === 'failed') throw new Error(`생성 실패: ${JSON.stringify(statusData.debug)}`);
       }
-      if (!videoUrl) throw new Error('영상 생성 시간 초과 (5분). PiAPI Task History에서 결과를 확인해주세요.');
+      if (!videoUrl) throw new Error('시간 초과 (5분). PiAPI 피크 타임(한국 오후 6시~자정)에는 대기 시간이 길어질 수 있어요.');
       setKlingMap(prev => ({ ...prev, [sc.scene_no]: videoUrl }));
     } catch(e) {
       alert(`장면 ${sc.scene_no} 오류: ${e.message}`);
     }
     setKlingGenerating(prev => ({ ...prev, [sc.scene_no]: false }));
+    setKlingProgress(prev => ({ ...prev, [sc.scene_no]: '' }));
   }
 
   function toggleScene(no) {
@@ -475,7 +481,7 @@ export default function Home() {
                           ) : (
                             <div className="vc-empty-hint">
                               {isKling ? <span className="spin-s-w"/> : '＋'}
-                              <span>{isKling?`Seedance 생성 중...`:'클릭하여 미디어 업로드'}</span>
+                              <span>{isKling ? (klingProgress[sc.scene_no] || 'Seedance 생성 중...') : '클릭하여 미디어 업로드'}</span>
                             </div>
                           )}
 

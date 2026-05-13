@@ -600,111 +600,76 @@ export default function Home() {
                     const isKling=klingGenerating[sc.scene_no];
                     return (
                       <div className="vc" key={sc.scene_no}>
-                        {/* 프리뷰 wrapper — 편집버튼이 overflow:hidden 밖에 위치 */}
-                        <div className="vc-wrap">
-                          <div className="vc-preview" onClick={()=>!media&&!klingUrl&&fileInputRefs.current[sc.scene_no]?.click()}>
 
-                          {/* 미디어 미리보기 */}
-                          {klingUrl ? (
-                            <video
-                              ref={el => videoRefs.current[sc.scene_no] = el}
-                              src={klingUrl}
-                              className="vc-media-fill"
-                              onLoadedMetadata={e => setDurationMap(p=>({...p,[sc.scene_no]:Math.round(e.target.duration)}))}
-                              onEnded={() => setPlayingMap(p=>({...p,[sc.scene_no]:false}))}
-                            />
-                          ) : media?.type==='video' ? (
-                            <video src={media.url} autoPlay muted loop className="vc-media-fill"/>
-                          ) : media?.type==='image' ? (
-                            <img src={media.url} alt="preview" className="vc-media-fill"/>
-                          ) : null}
+                        {/* ── 프리뷰 영역 ── */}
+                        <div style={{position:'relative',width:'100%',paddingTop:'56.25%',background:'#1a1a2e',overflow:'hidden'}}>
 
-                          {/* Seedance 영상 재생/멈춤 컨트롤 */}
-                          {klingUrl && (
-                            <div style={{position:'absolute',bottom:10,left:10,right:10,display:'flex',alignItems:'center',gap:8,zIndex:3}}>
-                              <button
-                                onClick={e=>{e.stopPropagation();togglePlay(sc.scene_no);}}
-                                style={{width:32,height:32,borderRadius:'50%',background:'rgba(0,0,0,0.6)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}
-                              >
-                                {playingMap[sc.scene_no] ? '⏸' : '▶'}
-                              </button>
-                              {durationMap[sc.scene_no] && (
-                                <span style={{fontFamily:'var(--tf)',fontSize:11,color:'rgba(255,255,255,0.8)',letterSpacing:'-0.12px',background:'rgba(0,0,0,0.5)',padding:'2px 7px',borderRadius:20}}>
-                                  {durationMap[sc.scene_no]}초
-                                </span>
-                              )}
-                              <a href={klingUrl} download={`scene_${sc.scene_no}.mp4`} target="_blank" rel="noreferrer"
-                                style={{marginLeft:'auto',fontFamily:'var(--tf)',fontSize:11,color:'rgba(255,255,255,0.7)',textDecoration:'none',background:'rgba(0,0,0,0.5)',padding:'2px 8px',borderRadius:20}}
-                                onClick={e=>e.stopPropagation()}>
-                                MP4 ↓
-                              </a>
+                          {/* 미디어 */}
+                          {klingUrl
+                            ? <video ref={el=>videoRefs.current[sc.scene_no]=el} src={klingUrl} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',objectFit:'cover'}} onLoadedMetadata={e=>setDurationMap(p=>({...p,[sc.scene_no]:Math.round(e.target.duration)}))} onEnded={()=>setPlayingMap(p=>({...p,[sc.scene_no]:false}))}/>
+                            : media?.type==='video'
+                            ? <video src={media.url} autoPlay muted loop style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',objectFit:'cover'}}/>
+                            : media?.type==='image'
+                            ? <img src={media.url} alt="" style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',objectFit:'cover'}}/>
+                            : null
+                          }
+
+                          {/* 업로드 힌트 */}
+                          {!media && !klingUrl && !isKling && (
+                            <div onClick={()=>fileInputRefs.current[sc.scene_no]?.click()} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:10,cursor:'pointer'}}>
+                              <span style={{fontSize:28,color:'rgba(255,255,255,0.35)',lineHeight:1}}>＋</span>
+                              <span style={{fontSize:12,color:'rgba(255,255,255,0.35)'}}>클릭하여 미디어 업로드</span>
                             </div>
                           )}
 
-                          {/* 오버레이 배지 */}
-                          <div className="vc-overlay-tl">
+                          {/* 생성 중 힌트 */}
+                          {isKling && (
+                            <div style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:10,pointerEvents:'none'}}>
+                              <span className="spin-s-w"/>
+                              <span style={{fontSize:12,color:'rgba(255,255,255,0.6)'}}>{klingProgress[sc.scene_no]||'Seedance 생성 중...'}</span>
+                            </div>
+                          )}
+
+                          {/* Scene 번호 배지 (좌상단) */}
+                          <div style={{position:'absolute',top:10,left:10,display:'flex',alignItems:'center',gap:6,zIndex:2}}>
                             <span className="vc-num">Scene {sc.scene_no}</span>
                             <span className="vc-dur">{m>0?`${m}분 `:''}{s}초</span>
                           </div>
 
-                          {/* 편집 버튼 우측 상단 */}
-                          <button
-                            onClick={e=>{e.stopPropagation(); editMap[sc.scene_no]?cancelEdit(sc.scene_no):startEdit(sc);}}
-                            style={{position:'absolute',top:10,right:10,zIndex:10,background:editMap[sc.scene_no]?'rgba(0,113,227,0.9)':'rgba(0,0,0,0.6)',border:'none',borderRadius:6,padding:'5px 10px',fontFamily:'var(--tf)',fontSize:11,fontWeight:500,color:'#fff',cursor:'pointer',letterSpacing:'-0.12px'}}
-                          >{editMap[sc.scene_no]?'✕ 닫기':'✏️ 편집'}</button>
-
+                          {/* 상태 배지 */}
                           {audioUrl && <span className="vc-audio-badge">♪ 음성</span>}
                           {klingUrl && <span className="vc-kling-badge">🎬 Seedance</span>}
                           {media && !klingUrl && <span className="vc-media-badge">{media.type==='video'?'🎥':'🖼'} {media.name}</span>}
-
-                          {/* 생성 중 */}
                           {isGen && <div className="vc-gen"><span className="spin-s-w"/>음성 생성 중...</div>}
 
-                          {/* 미디어 없을 때 업로드 힌트 */}
-                          {!media && !klingUrl && !isKling && (
-                            <div style={{
-                              position:'absolute',top:0,left:0,width:'100%',height:'100%',
-                              display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-                              gap:10,pointerEvents:'none'
-                            }}>
-                              <span style={{fontSize:28,color:'rgba(255,255,255,0.4)',lineHeight:1}}>＋</span>
-                              <span style={{fontSize:12,color:'rgba(255,255,255,0.4)',letterSpacing:'-0.12px'}}>클릭하여 미디어 업로드</span>
-                            </div>
-                          )}
-                          {isKling && (
-                            <div style={{
-                              position:'absolute',top:0,left:0,width:'100%',height:'100%',
-                              display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-                              gap:10,pointerEvents:'none'
-                            }}>
-                              <span className="spin-s-w"/>
-                              <span style={{fontSize:12,color:'rgba(255,255,255,0.6)',letterSpacing:'-0.12px'}}>{klingProgress[sc.scene_no] || 'Seedance 생성 중...'}</span>
+                          {/* 재생 컨트롤 */}
+                          {klingUrl && (
+                            <div style={{position:'absolute',bottom:10,left:10,right:10,display:'flex',alignItems:'center',gap:8,zIndex:3}}>
+                              <button onClick={e=>{e.stopPropagation();togglePlay(sc.scene_no);}} style={{width:32,height:32,borderRadius:'50%',background:'rgba(0,0,0,0.6)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}>
+                                {playingMap[sc.scene_no]?'⏸':'▶'}
+                              </button>
+                              {durationMap[sc.scene_no] && <span style={{fontFamily:'var(--tf)',fontSize:11,color:'rgba(255,255,255,0.8)',background:'rgba(0,0,0,0.5)',padding:'2px 7px',borderRadius:20}}>{durationMap[sc.scene_no]}초</span>}
+                              <a href={klingUrl} download={`scene_${sc.scene_no}.mp4`} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{marginLeft:'auto',fontFamily:'var(--tf)',fontSize:11,color:'rgba(255,255,255,0.7)',textDecoration:'none',background:'rgba(0,0,0,0.5)',padding:'2px 8px',borderRadius:20}}>MP4 ↓</a>
                             </div>
                           )}
                         </div>
-                          {/* 편집 버튼 — wrapper 기준 우측 상단 (overflow:hidden 밖) */}
-                          <button
-                            className={`vc-edit-btn${editMap[sc.scene_no]?' active':''}`}
-                            onClick={()=>editMap[sc.scene_no]?cancelEdit(sc.scene_no):startEdit(sc)}
-                          >{editMap[sc.scene_no]?'✕ 닫기':'✏️ 편집'}</button>
-                        </div>{/* /vc-wrap */}
+
+                        {/* ── 편집 버튼 (프리뷰 밖, overflow 영향 없음) ── */}
+                        <button
+                          onClick={()=>editMap[sc.scene_no]?cancelEdit(sc.scene_no):startEdit(sc)}
+                          style={{width:'100%',padding:'8px',background:editMap[sc.scene_no]?'#e8f0fe':'#f5f5f7',border:'none',borderTop:'1px solid rgba(0,0,0,0.06)',fontFamily:'var(--tf)',fontSize:12,fontWeight:500,color:editMap[sc.scene_no]?'var(--blue)':'var(--t48)',cursor:'pointer',textAlign:'left',letterSpacing:'-0.12px'}}
+                        >{editMap[sc.scene_no]?'✕ 편집 닫기':'✏️ 프롬프트 편집'}</button>
+
+                        {/* ── 편집 패널 ── */}
                         {editMap[sc.scene_no] && (
-                          <div style={{padding:'14px 16px',background:'#f0f4ff',borderBottom:'2px solid rgba(0,113,227,0.2)',display:'grid',gap:10}}>
+                          <div style={{padding:'14px 16px',background:'#f0f4ff',display:'grid',gap:10,borderBottom:'2px solid rgba(0,113,227,0.15)'}}>
                             <div>
                               <div style={{fontFamily:'var(--tf)',fontSize:10,fontWeight:600,letterSpacing:'.06em',textTransform:'uppercase',color:'var(--blue)',marginBottom:5}}>영상 프롬프트 (Seedance)</div>
-                              <textarea
-                                value={scenarioEdits[sc.scene_no]?.screen_prompt??sc.screen_prompt}
-                                onChange={e=>updateEdit(sc.scene_no,'screen_prompt',e.target.value)}
-                                style={{width:'100%',fontSize:12,padding:'8px 10px',minHeight:68,lineHeight:1.5,borderRadius:6,border:'1px solid rgba(0,113,227,0.25)',background:'#fff',fontFamily:'var(--tf)',color:'var(--nb)',outline:'none',resize:'vertical'}}
-                              />
+                              <textarea value={scenarioEdits[sc.scene_no]?.screen_prompt??sc.screen_prompt} onChange={e=>updateEdit(sc.scene_no,'screen_prompt',e.target.value)} style={{width:'100%',fontSize:12,padding:'8px 10px',minHeight:68,lineHeight:1.5,borderRadius:6,border:'1px solid rgba(0,113,227,0.25)',background:'#fff',fontFamily:'var(--tf)',color:'var(--nb)',outline:'none',resize:'vertical'}}/>
                             </div>
                             <div>
                               <div style={{fontFamily:'var(--tf)',fontSize:10,fontWeight:600,letterSpacing:'.06em',textTransform:'uppercase',color:'var(--t48)',marginBottom:5}}>내레이션 (ElevenLabs)</div>
-                              <textarea
-                                value={scenarioEdits[sc.scene_no]?.narration??sc.narration}
-                                onChange={e=>updateEdit(sc.scene_no,'narration',e.target.value)}
-                                style={{width:'100%',fontSize:12,padding:'8px 10px',minHeight:80,lineHeight:1.6,borderRadius:6,border:'1px solid rgba(0,0,0,0.1)',background:'#fff',fontFamily:'var(--tf)',color:'var(--nb)',outline:'none',resize:'vertical'}}
-                              />
+                              <textarea value={scenarioEdits[sc.scene_no]?.narration??sc.narration} onChange={e=>updateEdit(sc.scene_no,'narration',e.target.value)} style={{width:'100%',fontSize:12,padding:'8px 10px',minHeight:80,lineHeight:1.6,borderRadius:6,border:'1px solid rgba(0,0,0,0.1)',background:'#fff',fontFamily:'var(--tf)',color:'var(--nb)',outline:'none',resize:'vertical'}}/>
                             </div>
                             <div style={{display:'flex',gap:6}}>
                               <button onClick={()=>saveEdit(sc.scene_no)} style={{flex:1,padding:'8px',background:'var(--blue)',color:'#fff',border:'none',borderRadius:6,fontFamily:'var(--tf)',fontSize:12,fontWeight:500,cursor:'pointer'}}>저장</button>
@@ -713,23 +678,15 @@ export default function Home() {
                           </div>
                         )}
 
-                        {/* 카드 액션 버튼 */}
+                        {/* ── 액션 버튼 ── */}
                         <div className="vc-actions">
-                          <button className="vc-act-btn upload" onClick={()=>fileInputRefs.current[sc.scene_no]?.click()}>
-                            📁 {media?'교체':'업로드'}
-                          </button>
+                          <button className="vc-act-btn upload" onClick={()=>fileInputRefs.current[sc.scene_no]?.click()}>📁 {media?'교체':'업로드'}</button>
                           {media?.type==='image' && !isKling && (
-                            <button className="vc-act-btn" onClick={()=>generateFromImage(sc)}
-                              style={{flex:1,background:'#1d6f42',color:'#fff',border:'none',fontSize:11}}>
-                              🖼→🎬 이미지→영상
-                            </button>
+                            <button className="vc-act-btn" onClick={()=>generateFromImage(sc)} style={{flex:1,background:'#1d6f42',color:'#fff',border:'none',fontSize:11}}>🖼→🎬 이미지→영상</button>
                           )}
-                          <button className="vc-act-btn kling" onClick={()=>generateKlingScene(sc)} disabled={isKling}>
-                            {isKling?'생성 중...':'🎬 Seedance 생성'}
-                          </button>
+                          <button className="vc-act-btn kling" onClick={()=>generateKlingScene(sc)} disabled={isKling}>{isKling?'생성 중...':'🎬 Seedance 생성'}</button>
                           {lastTaskIds[sc.scene_no] && !klingUrl && (
-                            <button className="vc-act-btn" onClick={()=>retrieveVideo(sc.scene_no)}
-                              style={{flex:'0 0 auto',background:'#fff',border:'1px solid rgba(0,0,0,0.12)',color:'#1d1d1f',fontSize:11}}>🔄</button>
+                            <button className="vc-act-btn" onClick={()=>retrieveVideo(sc.scene_no)} style={{flex:'0 0 auto',background:'#fff',border:'1px solid rgba(0,0,0,0.12)',color:'#1d1d1f',fontSize:11}}>🔄</button>
                           )}
                           {(media||klingUrl) && (
                             <button className="vc-act-btn remove" onClick={()=>{removeMedia(sc.scene_no);setKlingMap(p=>{const n={...p};delete n[sc.scene_no];return n;});setPlayingMap(p=>{const n={...p};delete n[sc.scene_no];return n;});setDurationMap(p=>{const n={...p};delete n[sc.scene_no];return n;})}}>✕</button>
@@ -737,7 +694,7 @@ export default function Home() {
                           <input ref={el=>fileInputRefs.current[sc.scene_no]=el} type="file" accept="image/*,video/*" style={{display:'none'}} onChange={e=>handleMediaUpload(sc.scene_no,e.target.files[0])}/>
                         </div>
 
-                        {/* 카드 정보 */}
+                        {/* ── 카드 정보 ── */}
                         <div className="vc-info">
                           <div className="vc-chapter">{sc.chapter}</div>
                           <div className="vc-narr">{sc.narration}</div>
@@ -749,6 +706,7 @@ export default function Home() {
                           )}
                           {voiceErr && <div style={{fontSize:11,color:'#c0392b',marginTop:4}}>오류: {voiceErr}</div>}
                         </div>
+
                       </div>
                     );
                   })}

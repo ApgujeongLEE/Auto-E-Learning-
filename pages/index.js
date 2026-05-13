@@ -55,8 +55,10 @@ export default function Home() {
   const [btn2Loading, setBtn2Loading] = useState(false);
   const [savedAt, setSavedAt] = useState(null);
   const [mediaMap, setMediaMap] = useState({}); // scene_no → { type, url, name }
-  const [klingMap, setKlingMap] = useState({});  // scene_no → video url
-  const [klingGenerating, setKlingGenerating] = useState({}); // scene_no → bool
+  const [klingMap, setKlingMap] = useState({});
+  const [klingGenerating, setKlingGenerating] = useState({});
+  const [klingProgress, setKlingProgress] = useState({});
+  const [lastTaskIds, setLastTaskIds] = useState({});
   const fileInputRefs = useRef({});
   const msgTimer = useRef(null);
 
@@ -112,6 +114,26 @@ export default function Home() {
       reader.onloadend = () => res(reader.result.split(',')[1]);
       reader.readAsDataURL(blob);
     });
+  }
+
+  async function retrieveVideo(sceneNo) {
+    const taskId = lastTaskIds[sceneNo];
+    if (!taskId) { alert('저장된 Task ID가 없어요.'); return; }
+    try {
+      const res = await fetch('/api/video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task_id: taskId, scene_no: sceneNo, action: 'retrieve' })
+      });
+      const data = await res.json();
+      console.log('[retrieve]', JSON.stringify(data));
+      if (data.video_url) {
+        setKlingMap(prev => ({ ...prev, [sceneNo]: data.video_url }));
+        alert(`장면 ${sceneNo} 영상 복구 완료!`);
+      } else {
+        alert(`영상 URL을 찾지 못했어요.\nraw_output: ${JSON.stringify(data.raw_output)}`);
+      }
+    } catch(e) { alert('복구 실패: ' + e.message); }
   }
 
   async function generateScenario() {
@@ -206,8 +228,6 @@ export default function Home() {
     setMediaMap(prev => { const n={...prev}; delete n[sceneNo]; return n; });
   }
 
-  const [klingProgress, setKlingProgress] = useState({}); // scene_no → 진행 텍스트
-
   async function generateKlingScene(sc) {
     setKlingGenerating(prev => ({ ...prev, [sc.scene_no]: true }));
     setKlingProgress(prev => ({ ...prev, [sc.scene_no]: '요청 전송 중...' }));
@@ -224,6 +244,9 @@ export default function Home() {
       if (!createRes.ok) throw new Error(createData.error);
       const { task_id } = createData;
 
+      // task_id 저장 (폴링 실패 시 수동 복구용)
+      setLastTaskIds(prev => ({ ...prev, [sc.scene_no]: task_id }));
+
       let videoUrl = null;
       for (let i = 0; i < 60; i++) {
         const elapsed = ((i + 1) * 5);
@@ -238,13 +261,18 @@ export default function Home() {
         let statusData;
         try { statusData = JSON.parse(statusText); }
         catch(_) { continue; }
-        console.log(`[Scene ${sc.scene_no}] ${i+1}/60:`, statusData);
+        console.log(`[Scene ${sc.scene_no}] ${i+1}/60 status:`, statusData.raw_status, '| output:', JSON.stringify(statusData.raw_output));
         if (statusData.status === 'succeed' && statusData.video_url) {
           videoUrl = statusData.video_url; break;
         }
-        if (statusData.status === 'failed') throw new Error(`생성 실패: ${JSON.stringify(statusData.debug)}`);
+        // 완료됐는데 URL 못 찾은 경우
+        if (statusData.raw_status === 'completed' && !statusData.video_url) {
+          console.warn('[Seedance] completed but no video_url! raw_output:', statusData.raw_output);
+          throw new Error(`영상 완료됐지만 URL을 찾지 못했어요.\nraw_output: ${JSON.stringify(statusData.raw_output)}\n\n'영상 복구' 버튼을 눌러주세요.`);
+        }
+        if (statusData.raw_status === 'failed') throw new Error(`생성 실패`);
       }
-      if (!videoUrl) throw new Error('시간 초과 (5분). PiAPI 피크 타임(한국 오후 6시~자정)에는 대기 시간이 길어질 수 있어요.');
+      if (!videoUrl) throw new Error('시간 초과. \'영상 복구\' 버튼으로 결과를 가져올 수 있어요.');
       setKlingMap(prev => ({ ...prev, [sc.scene_no]: videoUrl }));
     } catch(e) {
       alert(`장면 ${sc.scene_no} 오류: ${e.message}`);
@@ -511,6 +539,12 @@ export default function Home() {
                           <button className="vc-act-btn kling" onClick={()=>generateKlingScene(sc)} disabled={isKling}>
                             {isKling ? '생성 중...' : '🎬 Seedance 생성'}
                           </button>
+                          {lastTaskIds[sc.scene_no] && !klingUrl && (
+                            <button className="vc-act-btn" onClick={()=>retrieveVideo(sc.scene_no)}
+                              style={{flex:'0 0 auto',background:'#fff',border:'1px solid rgba(0,0,0,0.12)',color:'#1d1d1f',fontSize:11}}>
+                              🔄 복구
+                            </button>
+                          )}
                           {(media||klingUrl) && (
                             <button className="vc-act-btn remove" onClick={()=>{removeMedia(sc.scene_no);setKlingMap(p=>{const n={...p};delete n[sc.scene_no];return n;})}}>✕</button>
                           )}

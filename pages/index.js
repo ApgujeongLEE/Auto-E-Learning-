@@ -600,8 +600,9 @@ export default function Home() {
                     const isKling=klingGenerating[sc.scene_no];
                     return (
                       <div className="vc" key={sc.scene_no}>
-                        {/* 16:9 프리뷰 */}
-                        <div className="vc-preview" onClick={()=>!media&&!klingUrl&&fileInputRefs.current[sc.scene_no]?.click()}>
+                        {/* 프리뷰 wrapper — 편집버튼이 overflow:hidden 밖에 위치 */}
+                        <div className="vc-wrap">
+                          <div className="vc-preview" onClick={()=>!media&&!klingUrl&&fileInputRefs.current[sc.scene_no]?.click()}>
 
                           {/* 미디어 미리보기 */}
                           {klingUrl ? (
@@ -681,8 +682,12 @@ export default function Home() {
                             </div>
                           )}
                         </div>
-
-                        {/* 편집 패널 */}
+                          {/* 편집 버튼 — wrapper 기준 우측 상단 (overflow:hidden 밖) */}
+                          <button
+                            className={`vc-edit-btn${editMap[sc.scene_no]?' active':''}`}
+                            onClick={()=>editMap[sc.scene_no]?cancelEdit(sc.scene_no):startEdit(sc)}
+                          >{editMap[sc.scene_no]?'✕ 닫기':'✏️ 편집'}</button>
+                        </div>{/* /vc-wrap */}
                         {editMap[sc.scene_no] && (
                           <div style={{padding:'14px 16px',background:'#f0f4ff',borderBottom:'2px solid rgba(0,113,227,0.2)',display:'grid',gap:10}}>
                             <div>
@@ -710,11 +715,6 @@ export default function Home() {
 
                         {/* 카드 액션 버튼 */}
                         <div className="vc-actions">
-                          <button
-                            onClick={()=>editMap[sc.scene_no]?cancelEdit(sc.scene_no):startEdit(sc)}
-                            style={{flex:'0 0 auto',padding:'6px 12px',background:editMap[sc.scene_no]?'var(--blue)':'#fff',color:editMap[sc.scene_no]?'#fff':'var(--nb)',border:`1px solid ${editMap[sc.scene_no]?'var(--blue)':'rgba(0,0,0,0.15)'}`,borderRadius:6,fontFamily:'var(--tf)',fontSize:11,fontWeight:500,cursor:'pointer'}}>
-                            {editMap[sc.scene_no]?'✕ 닫기':'✏️ 편집'}
-                          </button>
                           <button className="vc-act-btn upload" onClick={()=>fileInputRefs.current[sc.scene_no]?.click()}>
                             📁 {media?'교체':'업로드'}
                           </button>

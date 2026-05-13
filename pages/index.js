@@ -645,6 +645,13 @@ export default function Home() {
                             <span className="vc-num">Scene {sc.scene_no}</span>
                             <span className="vc-dur">{m>0?`${m}분 `:''}{s}초</span>
                           </div>
+
+                          {/* 편집 버튼 우측 상단 */}
+                          <button
+                            onClick={e=>{e.stopPropagation(); editMap[sc.scene_no]?cancelEdit(sc.scene_no):startEdit(sc);}}
+                            style={{position:'absolute',top:10,right:10,zIndex:10,background:editMap[sc.scene_no]?'rgba(0,113,227,0.9)':'rgba(0,0,0,0.6)',border:'none',borderRadius:6,padding:'5px 10px',fontFamily:'var(--tf)',fontSize:11,fontWeight:500,color:'#fff',cursor:'pointer',letterSpacing:'-0.12px'}}
+                          >{editMap[sc.scene_no]?'✕ 닫기':'✏️ 편집'}</button>
+
                           {audioUrl && <span className="vc-audio-badge">♪ 음성</span>}
                           {klingUrl && <span className="vc-kling-badge">🎬 Seedance</span>}
                           {media && !klingUrl && <span className="vc-media-badge">{media.type==='video'?'🎥':'🖼'} {media.name}</span>}
@@ -675,10 +682,36 @@ export default function Home() {
                           )}
                         </div>
 
+                        {/* 편집 패널 */}
+                        {editMap[sc.scene_no] && (
+                          <div style={{padding:'14px 16px',background:'#f0f4ff',borderBottom:'2px solid rgba(0,113,227,0.2)',display:'grid',gap:10}}>
+                            <div>
+                              <div style={{fontFamily:'var(--tf)',fontSize:10,fontWeight:600,letterSpacing:'.06em',textTransform:'uppercase',color:'var(--blue)',marginBottom:5}}>영상 프롬프트 (Seedance)</div>
+                              <textarea
+                                value={scenarioEdits[sc.scene_no]?.screen_prompt??sc.screen_prompt}
+                                onChange={e=>updateEdit(sc.scene_no,'screen_prompt',e.target.value)}
+                                style={{width:'100%',fontSize:12,padding:'8px 10px',minHeight:68,lineHeight:1.5,borderRadius:6,border:'1px solid rgba(0,113,227,0.25)',background:'#fff',fontFamily:'var(--tf)',color:'var(--nb)',outline:'none',resize:'vertical'}}
+                              />
+                            </div>
+                            <div>
+                              <div style={{fontFamily:'var(--tf)',fontSize:10,fontWeight:600,letterSpacing:'.06em',textTransform:'uppercase',color:'var(--t48)',marginBottom:5}}>내레이션 (ElevenLabs)</div>
+                              <textarea
+                                value={scenarioEdits[sc.scene_no]?.narration??sc.narration}
+                                onChange={e=>updateEdit(sc.scene_no,'narration',e.target.value)}
+                                style={{width:'100%',fontSize:12,padding:'8px 10px',minHeight:80,lineHeight:1.6,borderRadius:6,border:'1px solid rgba(0,0,0,0.1)',background:'#fff',fontFamily:'var(--tf)',color:'var(--nb)',outline:'none',resize:'vertical'}}
+                              />
+                            </div>
+                            <div style={{display:'flex',gap:6}}>
+                              <button onClick={()=>saveEdit(sc.scene_no)} style={{flex:1,padding:'8px',background:'var(--blue)',color:'#fff',border:'none',borderRadius:6,fontFamily:'var(--tf)',fontSize:12,fontWeight:500,cursor:'pointer'}}>저장</button>
+                              <button onClick={()=>cancelEdit(sc.scene_no)} style={{flex:1,padding:'8px',background:'#fff',color:'var(--t48)',border:'1px solid rgba(0,0,0,.1)',borderRadius:6,fontFamily:'var(--tf)',fontSize:12,cursor:'pointer'}}>취소</button>
+                            </div>
+                          </div>
+                        )}
+
                         {/* 카드 액션 버튼 */}
                         <div className="vc-actions">
                           <button className="vc-act-btn upload" onClick={()=>fileInputRefs.current[sc.scene_no]?.click()}>
-                            📁 {media ? '교체' : '업로드'}
+                            📁 {media?'교체':'업로드'}
                           </button>
                           {media?.type==='image' && !isKling && (
                             <button className="vc-act-btn" onClick={()=>generateFromImage(sc)}
@@ -687,91 +720,29 @@ export default function Home() {
                             </button>
                           )}
                           <button className="vc-act-btn kling" onClick={()=>generateKlingScene(sc)} disabled={isKling}>
-                            {isKling ? '생성 중...' : '🎬 Seedance 생성'}
-                          </button>
-                          <button className="vc-act-btn" onClick={()=>startEdit(sc)}
-                            style={{flex:'0 0 auto',background:'#fff',border:'1px solid rgba(0,0,0,.12)',color:'var(--nb)',fontSize:11}}>
-                            ✏️
+                            {isKling?'생성 중...':'🎬 Seedance 생성'}
                           </button>
                           {lastTaskIds[sc.scene_no] && !klingUrl && (
                             <button className="vc-act-btn" onClick={()=>retrieveVideo(sc.scene_no)}
-                              style={{flex:'0 0 auto',background:'#fff',border:'1px solid rgba(0,0,0,0.12)',color:'#1d1d1f',fontSize:11}}>
-                              🔄
-                            </button>
+                              style={{flex:'0 0 auto',background:'#fff',border:'1px solid rgba(0,0,0,0.12)',color:'#1d1d1f',fontSize:11}}>🔄</button>
                           )}
                           {(media||klingUrl) && (
                             <button className="vc-act-btn remove" onClick={()=>{removeMedia(sc.scene_no);setKlingMap(p=>{const n={...p};delete n[sc.scene_no];return n;});setPlayingMap(p=>{const n={...p};delete n[sc.scene_no];return n;});setDurationMap(p=>{const n={...p};delete n[sc.scene_no];return n;})}}>✕</button>
                           )}
-                          <input
-                            ref={el=>fileInputRefs.current[sc.scene_no]=el}
-                            type="file" accept="image/*,video/*" style={{display:'none'}}
-                            onChange={e=>handleMediaUpload(sc.scene_no,e.target.files[0])}
-                          />
+                          <input ref={el=>fileInputRefs.current[sc.scene_no]=el} type="file" accept="image/*,video/*" style={{display:'none'}} onChange={e=>handleMediaUpload(sc.scene_no,e.target.files[0])}/>
                         </div>
 
                         {/* 카드 정보 */}
                         <div className="vc-info">
-                          {editMap[sc.scene_no] ? (
-                            /* 편집 모드 */
-                            <div style={{display:'grid',gap:8}}>
-                              <div>
-                                <div style={{fontFamily:'var(--tf)',fontSize:10,fontWeight:600,letterSpacing:'.06em',textTransform:'uppercase',color:'var(--t48)',marginBottom:4}}>챕터명</div>
-                                <input type="text"
-                                  value={scenarioEdits[sc.scene_no]?.chapter ?? sc.chapter}
-                                  onChange={e=>updateEdit(sc.scene_no,'chapter',e.target.value)}
-                                  style={{fontSize:13,padding:'7px 10px'}}
-                                />
-                              </div>
-                              <div>
-                                <div style={{fontFamily:'var(--tf)',fontSize:10,fontWeight:600,letterSpacing:'.06em',textTransform:'uppercase',color:'var(--blue)',marginBottom:4}}>영상 프롬프트 (Seedance)</div>
-                                <textarea
-                                  value={scenarioEdits[sc.scene_no]?.screen_prompt ?? sc.screen_prompt}
-                                  onChange={e=>updateEdit(sc.scene_no,'screen_prompt',e.target.value)}
-                                  style={{fontSize:12,padding:'7px 10px',minHeight:72,lineHeight:1.5}}
-                                />
-                              </div>
-                              <div>
-                                <div style={{fontFamily:'var(--tf)',fontSize:10,fontWeight:600,letterSpacing:'.06em',textTransform:'uppercase',color:'var(--t48)',marginBottom:4}}>내레이션 (ElevenLabs)</div>
-                                <textarea
-                                  value={scenarioEdits[sc.scene_no]?.narration ?? sc.narration}
-                                  onChange={e=>updateEdit(sc.scene_no,'narration',e.target.value)}
-                                  style={{fontSize:12,padding:'7px 10px',minHeight:88,lineHeight:1.6}}
-                                />
-                              </div>
-                              <div style={{display:'flex',gap:6}}>
-                                <button onClick={()=>saveEdit(sc.scene_no)}
-                                  style={{flex:1,padding:'8px',background:'var(--blue)',color:'#fff',border:'none',borderRadius:6,fontFamily:'var(--tf)',fontSize:12,cursor:'pointer'}}>
-                                  저장
-                                </button>
-                                <button onClick={()=>cancelEdit(sc.scene_no)}
-                                  style={{flex:1,padding:'8px',background:'var(--lg)',color:'var(--t48)',border:'1px solid rgba(0,0,0,.1)',borderRadius:6,fontFamily:'var(--tf)',fontSize:12,cursor:'pointer'}}>
-                                  취소
-                                </button>
-                              </div>
+                          <div className="vc-chapter">{sc.chapter}</div>
+                          <div className="vc-narr">{sc.narration}</div>
+                          {audioUrl && (
+                            <div className="vc-audio">
+                              <audio controls src={audioUrl} style={{width:'100%',height:28}}/>
+                              <a className="a-dl" href={audioUrl} download={`scene_${sc.scene_no}.mp3`} style={{marginTop:4,display:'block',textAlign:'right'}}>MP3 ↓</a>
                             </div>
-                          ) : (
-                            /* 보기 모드 */
-                            <>
-                              <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8,marginBottom:4}}>
-                                <div className="vc-chapter">{sc.chapter}</div>
-                                <button onClick={()=>startEdit(sc)}
-                                  style={{flexShrink:0,background:'none',border:'1px solid rgba(0,0,0,.1)',borderRadius:6,padding:'3px 8px',fontFamily:'var(--tf)',fontSize:10,color:'var(--t48)',cursor:'pointer',whiteSpace:'nowrap'}}>
-                                  ✏️ 편집
-                                </button>
-                              </div>
-                              <div className="vc-narr">{sc.narration}</div>
-                              {audioUrl && (
-                                <div className="vc-audio">
-                                  <audio controls src={audioUrl} style={{width:'100%',height:28}}/>
-                                  <a className="a-dl" href={audioUrl} download={`scene_${sc.scene_no}.mp3`} style={{marginTop:4,display:'block',textAlign:'right'}}>MP3 ↓</a>
-                                </div>
-                              )}
-                              {klingUrl && (
-                                <a className="a-dl" href={klingUrl} download={`scene_${sc.scene_no}.mp4`} target="_blank" rel="noreferrer" style={{display:'block',marginTop:4,textAlign:'right'}}>MP4 ↓</a>
-                              )}
-                              {voiceErr && <div style={{fontSize:11,color:'#c0392b',marginTop:4}}>오류: {voiceErr}</div>}
-                            </>
                           )}
+                          {voiceErr && <div style={{fontSize:11,color:'#c0392b',marginTop:4}}>오류: {voiceErr}</div>}
                         </div>
                       </div>
                     );

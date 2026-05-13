@@ -569,10 +569,6 @@ export default function Home() {
                             <a className="a-dl" href={klingUrl} download={`scene_${sc.scene_no}.mp4`} target="_blank" rel="noreferrer" style={{display:'block',marginTop:4,textAlign:'right'}}>MP4 ↓</a>
                           )}
                           {voiceErr && <div style={{fontSize:11,color:'#c0392b',marginTop:4}}>오류: {voiceErr}</div>}
-                          <button className="vc-toggle" onClick={()=>toggleScene(sc.scene_no)}>
-                            {isOpen?'영상 프롬프트 닫기 ▲':'영상 프롬프트 보기 ▼'}
-                          </button>
-                          {isOpen && <div className="vc-prompt-box">{sc.screen_prompt}</div>}
                         </div>
                       </div>
                     );

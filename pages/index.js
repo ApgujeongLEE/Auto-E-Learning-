@@ -59,6 +59,9 @@ export default function Home() {
   const [klingGenerating, setKlingGenerating] = useState({});
   const [klingProgress, setKlingProgress] = useState({});
   const [lastTaskIds, setLastTaskIds] = useState({});
+  const [playingMap, setPlayingMap] = useState({});   // scene_no → bool
+  const [durationMap, setDurationMap] = useState({}); // scene_no → 초
+  const videoRefs = useRef({});
   const fileInputRefs = useRef({});
   const msgTimer = useRef(null);
 
@@ -217,7 +220,78 @@ export default function Home() {
     });
   }
 
-  function handleMediaUpload(sceneNo, file) {
+  function togglePlay(sceneNo) {
+    const video = videoRefs.current[sceneNo];
+    if (!video) return;
+    if (video.paused) { video.play(); setPlayingMap(p=>({...p,[sceneNo]:true})); }
+    else { video.pause(); setPlayingMap(p=>({...p,[sceneNo]:false})); }
+  }
+
+  async function generateFromImage(sc) {
+    const media = mediaMap[sc.scene_no];
+    if (!media || media.type !== 'image') {
+      alert('이미지를 먼저 업로드해주세요.'); return;
+    }
+    if (!process.env.NEXT_PUBLIC_HAS_IMGBB && !window._imgbbChecked) {
+      window._imgbbChecked = true;
+    }
+
+    setKlingGenerating(prev => ({...prev, [sc.scene_no]: true}));
+    setKlingProgress(prev => ({...prev, [sc.scene_no]: '이미지 업로드 중...'}));
+
+    try {
+      // 1. 이미지를 base64로 변환
+      const response = await fetch(media.url);
+      const blob = await response.blob();
+      const base64 = await blobToBase64(blob);
+
+      // 2. ImgBB에 업로드해서 공개 URL 획득
+      setKlingProgress(prev => ({...prev, [sc.scene_no]: 'ImgBB 업로드 중...'}));
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ imageBase64: base64 })
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) throw new Error(uploadData.error);
+      const imageUrl = uploadData.url;
+
+      // 3. Seedance 이미지→영상 생성
+      setKlingProgress(prev => ({...prev, [sc.scene_no]: 'Seedance 이미지→영상 생성 중...'}));
+      const createRes = await fetch('/api/video', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ screen_prompt: sc.screen_prompt, scene_no: sc.scene_no, action: 'create', image_url: imageUrl })
+      });
+      const createData = await createRes.json();
+      if (!createRes.ok) throw new Error(createData.error);
+      const { task_id } = createData;
+      setLastTaskIds(prev => ({...prev, [sc.scene_no]: task_id}));
+
+      // 4. 폴링
+      let videoUrl = null;
+      for (let i = 0; i < 60; i++) {
+        const elapsed = (i + 1) * 5;
+        setKlingProgress(prev => ({...prev, [sc.scene_no]: `이미지→영상 생성 중... ${elapsed}초 경과`}));
+        await new Promise(r => setTimeout(r, 5000));
+        const statusRes = await fetch('/api/video', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ task_id, scene_no: sc.scene_no, action: 'status' })
+        });
+        const statusData = await statusRes.json();
+        if (statusData.status === 'succeed' && statusData.video_url) { videoUrl = statusData.video_url; break; }
+        if (statusData.raw_status === 'completed' && !statusData.video_url) throw new Error(`완료됐지만 URL을 찾지 못했어요. 🔄 복구 버튼을 눌러주세요.\nraw_output: ${JSON.stringify(statusData.raw_output)}`);
+        if (statusData.raw_status === 'failed') throw new Error('생성 실패');
+      }
+      if (!videoUrl) throw new Error('시간 초과. 🔄 복구 버튼을 눌러주세요.');
+      setKlingMap(prev => ({...prev, [sc.scene_no]: videoUrl}));
+    } catch(e) {
+      alert(`장면 ${sc.scene_no} 오류: ${e.message}`);
+    }
+    setKlingGenerating(prev => ({...prev, [sc.scene_no]: false}));
+    setKlingProgress(prev => ({...prev, [sc.scene_no]: ''}));
+  }
     if (!file) return;
     const type = file.type.startsWith('video') ? 'video' : 'image';
     const url = URL.createObjectURL(file);
@@ -501,12 +575,40 @@ export default function Home() {
 
                           {/* 미디어 미리보기 */}
                           {klingUrl ? (
-                            <video src={klingUrl} autoPlay muted loop className="vc-media-fill"/>
+                            <video
+                              ref={el => videoRefs.current[sc.scene_no] = el}
+                              src={klingUrl}
+                              className="vc-media-fill"
+                              onLoadedMetadata={e => setDurationMap(p=>({...p,[sc.scene_no]:Math.round(e.target.duration)}))}
+                              onEnded={() => setPlayingMap(p=>({...p,[sc.scene_no]:false}))}
+                            />
                           ) : media?.type==='video' ? (
                             <video src={media.url} autoPlay muted loop className="vc-media-fill"/>
                           ) : media?.type==='image' ? (
                             <img src={media.url} alt="preview" className="vc-media-fill"/>
                           ) : null}
+
+                          {/* Seedance 영상 재생/멈춤 컨트롤 */}
+                          {klingUrl && (
+                            <div style={{position:'absolute',bottom:10,left:10,right:10,display:'flex',alignItems:'center',gap:8,zIndex:3}}>
+                              <button
+                                onClick={e=>{e.stopPropagation();togglePlay(sc.scene_no);}}
+                                style={{width:32,height:32,borderRadius:'50%',background:'rgba(0,0,0,0.6)',border:'none',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}
+                              >
+                                {playingMap[sc.scene_no] ? '⏸' : '▶'}
+                              </button>
+                              {durationMap[sc.scene_no] && (
+                                <span style={{fontFamily:'var(--tf)',fontSize:11,color:'rgba(255,255,255,0.8)',letterSpacing:'-0.12px',background:'rgba(0,0,0,0.5)',padding:'2px 7px',borderRadius:20}}>
+                                  {durationMap[sc.scene_no]}초
+                                </span>
+                              )}
+                              <a href={klingUrl} download={`scene_${sc.scene_no}.mp4`} target="_blank" rel="noreferrer"
+                                style={{marginLeft:'auto',fontFamily:'var(--tf)',fontSize:11,color:'rgba(255,255,255,0.7)',textDecoration:'none',background:'rgba(0,0,0,0.5)',padding:'2px 8px',borderRadius:20}}
+                                onClick={e=>e.stopPropagation()}>
+                                MP4 ↓
+                              </a>
+                            </div>
+                          )}
 
                           {/* 오버레이 배지 */}
                           <div className="vc-overlay-tl">
@@ -548,6 +650,12 @@ export default function Home() {
                           <button className="vc-act-btn upload" onClick={()=>fileInputRefs.current[sc.scene_no]?.click()}>
                             📁 {media ? '교체' : '업로드'}
                           </button>
+                          {media?.type==='image' && !isKling && (
+                            <button className="vc-act-btn" onClick={()=>generateFromImage(sc)}
+                              style={{flex:1,background:'#1d6f42',color:'#fff',border:'none',fontSize:11}}>
+                              🖼→🎬 이미지→영상
+                            </button>
+                          )}
                           <button className="vc-act-btn kling" onClick={()=>generateKlingScene(sc)} disabled={isKling}>
                             {isKling ? '생성 중...' : '🎬 Seedance 생성'}
                           </button>
@@ -558,7 +666,7 @@ export default function Home() {
                             </button>
                           )}
                           {(media||klingUrl) && (
-                            <button className="vc-act-btn remove" onClick={()=>{removeMedia(sc.scene_no);setKlingMap(p=>{const n={...p};delete n[sc.scene_no];return n;})}}>✕</button>
+                            <button className="vc-act-btn remove" onClick={()=>{removeMedia(sc.scene_no);setKlingMap(p=>{const n={...p};delete n[sc.scene_no];return n;});setPlayingMap(p=>{const n={...p};delete n[sc.scene_no];return n;});setDurationMap(p=>{const n={...p};delete n[sc.scene_no];return n;})}}>✕</button>
                           )}
                           <input
                             ref={el=>fileInputRefs.current[sc.scene_no]=el}

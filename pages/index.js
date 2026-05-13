@@ -710,6 +710,11 @@ export default function Home() {
 
                         {/* 카드 액션 버튼 */}
                         <div className="vc-actions">
+                          <button
+                            onClick={()=>editMap[sc.scene_no]?cancelEdit(sc.scene_no):startEdit(sc)}
+                            style={{flex:'0 0 auto',padding:'6px 12px',background:editMap[sc.scene_no]?'var(--blue)':'#fff',color:editMap[sc.scene_no]?'#fff':'var(--nb)',border:`1px solid ${editMap[sc.scene_no]?'var(--blue)':'rgba(0,0,0,0.15)'}`,borderRadius:6,fontFamily:'var(--tf)',fontSize:11,fontWeight:500,cursor:'pointer'}}>
+                            {editMap[sc.scene_no]?'✕ 닫기':'✏️ 편집'}
+                          </button>
                           <button className="vc-act-btn upload" onClick={()=>fileInputRefs.current[sc.scene_no]?.click()}>
                             📁 {media?'교체':'업로드'}
                           </button>

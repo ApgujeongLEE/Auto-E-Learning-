@@ -525,17 +525,25 @@ export default function Home() {
                           {/* 생성 중 */}
                           {isGen && <div className="vc-gen"><span className="spin-s-w"/>음성 생성 중...</div>}
 
-                          {/* 미디어 없을 때 업로드 힌트만 표시 */}
+                          {/* 미디어 없을 때 업로드 힌트 */}
                           {!media && !klingUrl && !isKling && (
-                            <div className="vc-empty-hint">
-                              <span className="hint-icon">＋</span>
-                              <span className="hint-text">클릭하여 미디어 업로드</span>
+                            <div style={{
+                              position:'absolute',top:0,left:0,width:'100%',height:'100%',
+                              display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+                              gap:10,pointerEvents:'none'
+                            }}>
+                              <span style={{fontSize:28,color:'rgba(255,255,255,0.4)',lineHeight:1}}>＋</span>
+                              <span style={{fontSize:12,color:'rgba(255,255,255,0.4)',letterSpacing:'-0.12px'}}>클릭하여 미디어 업로드</span>
                             </div>
                           )}
                           {isKling && (
-                            <div className="vc-empty-hint">
+                            <div style={{
+                              position:'absolute',top:0,left:0,width:'100%',height:'100%',
+                              display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+                              gap:10,pointerEvents:'none'
+                            }}>
                               <span className="spin-s-w"/>
-                              <span className="hint-text">{klingProgress[sc.scene_no] || 'Seedance 생성 중...'}</span>
+                              <span style={{fontSize:12,color:'rgba(255,255,255,0.6)',letterSpacing:'-0.12px'}}>{klingProgress[sc.scene_no] || 'Seedance 생성 중...'}</span>
                             </div>
                           )}
                         </div>

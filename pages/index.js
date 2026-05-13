@@ -475,7 +475,7 @@ export default function Home() {
                           ) : (
                             <div className="vc-empty-hint">
                               {isKling ? <span className="spin-s-w"/> : '＋'}
-                              <span>{isKling?`Kling 생성 중...`:'클릭하여 미디어 업로드'}</span>
+                              <span>{isKling?`Seedance 생성 중...`:'클릭하여 미디어 업로드'}</span>
                             </div>
                           )}
 
@@ -485,7 +485,7 @@ export default function Home() {
                             <span className="vc-dur">{m>0?`${m}분 `:''}{s}초</span>
                           </div>
                           {audioUrl && <span className="vc-audio-badge">♪ 음성</span>}
-                          {klingUrl && <span className="vc-kling-badge">🎬 Kling</span>}
+                          {klingUrl && <span className="vc-kling-badge">🎬 Seedance</span>}
                           {media && !klingUrl && <span className="vc-media-badge">{media.type==='video'?'🎥':'🖼'} {media.name}</span>}
 
                           {/* 생성 중 */}
@@ -503,7 +503,7 @@ export default function Home() {
                             📁 {media ? '교체' : '업로드'}
                           </button>
                           <button className="vc-act-btn kling" onClick={()=>generateKlingScene(sc)} disabled={isKling}>
-                            {isKling ? '생성 중...' : '🎬 Kling 생성'}
+                            {isKling ? '생성 중...' : '🎬 Seedance 생성'}
                           </button>
                           {(media||klingUrl) && (
                             <button className="vc-act-btn remove" onClick={()=>{removeMedia(sc.scene_no);setKlingMap(p=>{const n={...p};delete n[sc.scene_no];return n;})}}>✕</button>
@@ -548,11 +548,11 @@ export default function Home() {
                       <div className="npc-tool">ElevenLabs API</div>
                       <span className="npc-badge live">Active</span>
                     </div>
-                    <div className="npc">
-                      <div className="npc-n">Step 3</div>
-                      <div className="npc-name">미디어 업로드</div>
-                      <div className="npc-tool">영상 · 이미지</div>
-                      <span className="npc-badge">Coming Soon</span>
+                    <div className="npc live">
+                      <div className="npc-n live">Step 3 · 연동 완료</div>
+                      <div className="npc-name">영상 생성</div>
+                      <div className="npc-tool">Seedance 2.0 API</div>
+                      <span className="npc-badge live">Active</span>
                     </div>
                     <div className="npc">
                       <div className="npc-n">Step 4</div>

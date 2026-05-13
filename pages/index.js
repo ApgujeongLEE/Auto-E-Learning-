@@ -525,9 +525,12 @@ export default function Home() {
                           {/* 생성 중 */}
                           {isGen && <div className="vc-gen"><span className="spin-s-w"/>음성 생성 중...</div>}
 
-                          {/* 미디어 없을 때 프롬프트 텍스트 */}
+                          {/* 미디어 없을 때 업로드 힌트만 표시 */}
                           {!media && !klingUrl && !isKling && (
-                            <div className="vc-prompt-text">{sc.screen_prompt}</div>
+                            <div className="vc-empty-hint">
+                              <span>＋</span>
+                              <span>클릭하여 미디어 업로드</span>
+                            </div>
                           )}
                         </div>
 

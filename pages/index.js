@@ -689,10 +689,14 @@ export default function Home() {
                           <button className="vc-act-btn kling" onClick={()=>generateKlingScene(sc)} disabled={isKling}>
                             {isKling ? '생성 중...' : '🎬 Seedance 생성'}
                           </button>
+                          <button className="vc-act-btn" onClick={()=>startEdit(sc)}
+                            style={{flex:'0 0 auto',background:'#fff',border:'1px solid rgba(0,0,0,.12)',color:'var(--nb)',fontSize:11}}>
+                            ✏️
+                          </button>
                           {lastTaskIds[sc.scene_no] && !klingUrl && (
                             <button className="vc-act-btn" onClick={()=>retrieveVideo(sc.scene_no)}
                               style={{flex:'0 0 auto',background:'#fff',border:'1px solid rgba(0,0,0,0.12)',color:'#1d1d1f',fontSize:11}}>
-                              🔄 복구
+                              🔄
                             </button>
                           )}
                           {(media||klingUrl) && (

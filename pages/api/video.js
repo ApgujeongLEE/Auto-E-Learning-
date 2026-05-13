@@ -8,20 +8,21 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'PIAPI_API_KEY 환경변수가 설정되지 않았습니다.' });
   }
 
-  // video_url 추출 함수 — 가능한 모든 경로 탐색
-  function extractVideoUrl(output) {
-    if (!output) return null;
-    return (
-      output.video_url ||
-      output.url ||
-      output.video ||
-      output.works?.[0]?.video?.resource ||
-      output.works?.[0]?.video?.url ||
-      output.works?.[0]?.url ||
-      output.result?.video_url ||
-      output.result?.url ||
-      null
-    );
+  // output 객체에서 video url 재귀 탐색
+  function findVideoUrl(obj, depth = 0) {
+    if (!obj || depth > 5) return null;
+    if (typeof obj === 'string' && (obj.endsWith('.mp4') || obj.includes('video'))) return obj;
+    const keys = ['video_url', 'url', 'video', 'resource', 'download_url', 'file_url'];
+    for (const k of keys) {
+      if (obj[k] && typeof obj[k] === 'string' && obj[k].startsWith('http')) return obj[k];
+    }
+    for (const k of Object.keys(obj)) {
+      if (typeof obj[k] === 'object') {
+        const found = findVideoUrl(obj[k], depth + 1);
+        if (found) return found;
+      }
+    }
+    return null;
   }
 
   // 영상 생성 요청
@@ -57,18 +58,24 @@ export default async function handler(req, res) {
         headers: { 'x-api-key': apiKey }
       });
       const data = await response.json();
-      console.log('[Seedance] status:', JSON.stringify(data));
+
       if (data.code !== 200) throw new Error(data.message || '상태 확인 실패');
 
       const task = data.data;
       const status = task.status;
-      const videoUrl = extractVideoUrl(task.output);
+
+      // completed 시 전체 응답 로깅
+      if (status === 'completed') {
+        console.log('[Seedance] COMPLETED full task:', JSON.stringify(task));
+      }
+
+      const videoUrl = findVideoUrl(task.output);
 
       return res.status(200).json({
         status: status === 'completed' ? 'succeed' : status,
         video_url: videoUrl,
         raw_status: status,
-        raw_output: task.output, // 전체 output 반환으로 디버그
+        raw_output: task.output,
         scene_no,
       });
     } catch (err) {
@@ -76,7 +83,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // task_id로 직접 영상 가져오기 (폴링 실패 시 수동 복구용)
+  // 수동 복구 — task_id로 직접 영상 가져오기
   if (action === 'retrieve') {
     try {
       const response = await fetch(`https://api.piapi.ai/api/v1/task/${task_id}`, {
@@ -84,7 +91,8 @@ export default async function handler(req, res) {
       });
       const data = await response.json();
       const task = data.data;
-      const videoUrl = extractVideoUrl(task.output);
+      console.log('[Seedance] retrieve full task:', JSON.stringify(task));
+      const videoUrl = findVideoUrl(task.output);
       return res.status(200).json({
         status: task.status,
         video_url: videoUrl,

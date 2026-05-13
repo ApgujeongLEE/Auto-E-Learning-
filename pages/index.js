@@ -528,8 +528,14 @@ export default function Home() {
                           {/* 미디어 없을 때 업로드 힌트만 표시 */}
                           {!media && !klingUrl && !isKling && (
                             <div className="vc-empty-hint">
-                              <span>＋</span>
-                              <span>클릭하여 미디어 업로드</span>
+                              <span className="hint-icon">＋</span>
+                              <span className="hint-text">클릭하여 미디어 업로드</span>
+                            </div>
+                          )}
+                          {isKling && (
+                            <div className="vc-empty-hint">
+                              <span className="spin-s-w"/>
+                              <span className="hint-text">{klingProgress[sc.scene_no] || 'Seedance 생성 중...'}</span>
                             </div>
                           )}
                         </div>

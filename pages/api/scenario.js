@@ -27,21 +27,53 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 8000,
-        system: `이러닝 시나리오 전문 작가. 반드시 순수 JSON만 출력. 마크다운 없이.
-형식: {"title":"","summary":"","scenes":[{"scene_no":1,"chapter":"","duration_sec":0,"screen_prompt":"영어 Kling/Veo용 장면묘사","narration":"한국어 ElevenLabs TTS용 내레이션"}]}`,
+        system: `당신은 이러닝 시나리오 전문 작가입니다. 반드시 순수 JSON만 출력하세요. 마크다운 없이.
+
+출력 형식:
+{"title":"","summary":"","scenes":[{"scene_no":1,"chapter":"","duration_sec":0,"screen_prompt":"","narration":""}]}
+
+screen_prompt 작성 규칙 (Seedance AI 영상 생성 최적화):
+1. 반드시 영어로 작성
+2. 기본 구조: [카메라 구도], [피사체/행동], [배경], [조명/분위기], [스타일]
+3. 강사 장면 기본 템플릿:
+   "Medium shot of a professional Korean female/male instructor, upper body and hands visible, speaking directly to camera with confident and warm expression, [배경 묘사], soft studio lighting with subtle rim light, professional educational video style, cinematic 4K, shallow depth of field"
+4. 장면 유형별 구도:
+   - 인트로/아웃트로: Wide shot → Medium shot으로 전환되는 강사 등장
+   - 개념 설명: Medium shot, 강사가 손짓으로 강조하며 설명
+   - 실습/시연: Over-the-shoulder shot, 화면을 가리키며 설명
+   - 핵심 정리: Close-up on face and hands, 진지하고 명확한 표정
+5. 강사 묘사: Korean instructor, professional attire, natural makeup, confident posture
+6. 배경 옵션: modern studio background / clean office / soft bokeh background
+7. 금지: cartoon, animation, text overlay, watermark
+
+narration 작성 규칙:
+- 자연스러운 한국어 구어체
+- 강사가 직접 시청자에게 말하는 1인칭 톤
+- 학습 대상 수준에 맞는 용어 사용`,
         messages: [{
           role: 'user',
           content: `교육 주제: ${topic}
 학습 대상: ${audience}
 수준: ${level}
-목표:
+학습 목표:
 ${objectives}
-길이: ${duration}
-장면수: ${scenes}장면
+영상 길이: ${duration}
+장면 수: ${scenes}장면
 톤: ${tone}
-${extra ? '추가: ' + extra : ''}
+${extra ? '추가 요청: ' + extra : ''}
 
-JSON으로 시나리오 작성. screen_prompt 영어 구체적, narration 자연스러운 한국어.`
+위 정보로 이러닝 시나리오를 JSON으로 작성하세요.
+
+screen_prompt 필수 조건:
+- 한국인 강사(상반신+손이 보이는 미디엄샷)가 메인으로 등장
+- 각 장면의 교육 내용에 맞게 강사의 행동/표정/손짓을 구체적으로 묘사
+- Seedance AI에 최적화된 영어 프롬프트
+- 장면마다 카메라 구도, 배경, 조명, 분위기를 명시
+
+narration 필수 조건:
+- 강사가 직접 시청자에게 말하는 자연스러운 한국어
+- 해당 장면 duration_sec에 맞는 분량 (초당 약 5~6음절)
+- ${tone} 톤 유지`
         }]
       })
     });

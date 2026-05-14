@@ -29,15 +29,18 @@ export default async function handler(req, res) {
         max_tokens: 8000,
         system: `이러닝 시나리오 작가. 순수 JSON만 출력. 마크다운 금지.
 
-형식: {"title":"","summary":"","scenes":[{"scene_no":1,"chapter":"","duration_sec":0,"screen_prompt":"","narration":""}]}
+형식: {"title":"","summary":"","scenes":[{"scene_no":1,"chapter":"","duration_sec":0,"screen_prompt":"","shot_prompts":["SHOT1 단독 프롬프트","SHOT2 단독 프롬프트","SHOT3 단독 프롬프트"],"narration":""}]}
 
 screen_prompt 규칙 (절대 준수):
 
 [기본 원칙]
 - 영어 작성
-- 반드시 SHOT 1 → SHOT 2 → SHOT 3 멀티샷 구조
-- 강사는 항상 프레임 안에 이미 위치해 있음 (걷거나 등장하는 씬 금지)
-- 최대한 실제 영상처럼 photorealistic하게 묘사
+- screen_prompt: SHOT 1 → SHOT 2 → SHOT 3 전체 흐름 요약
+- shot_prompts: 각 SHOT을 독립적인 10초 영상으로 생성할 개별 프롬프트 3개
+  · shot_prompts[0]: SHOT 1 단독 (Eye-level medium shot 위주)
+  · shot_prompts[1]: SHOT 2 단독 (Medium close-up 위주)  
+  · shot_prompts[2]: SHOT 3 단독 (Medium wide 또는 강조 close-up)
+- 각 shot_prompt는 해당 SHOT 하나에만 집중, 10초 분량의 자연스러운 동작 묘사
 
 [표준 카메라 앵글 - 실제 유튜브/이러닝 기준]
 · SHOT A (기본): Eye-level medium shot, chest to head, instructor already in frame

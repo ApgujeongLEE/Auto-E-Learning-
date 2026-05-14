@@ -59,6 +59,8 @@ export default function Home() {
   const [klingGenerating, setKlingGenerating] = useState({});
   const [klingProgress, setKlingProgress] = useState({});
   const [lastTaskIds, setLastTaskIds] = useState({});
+  const [shotMap, setShotMap] = useState({}); // scene_no → {0,1,2} → url
+  const [shotGenerating, setShotGenerating] = useState({}); // scene_no_shot → bool
   const [playingMap, setPlayingMap] = useState({});
   const [durationMap, setDurationMap] = useState({});
   const [editMap, setEditMap] = useState({});
@@ -332,6 +334,41 @@ export default function Home() {
 
   function removeMedia(sceneNo) {
     setMediaMap(prev => { const n={...prev}; delete n[sceneNo]; return n; });
+  }
+
+  async function generateShot(sc, shotIdx) {
+    const key = `${sc.scene_no}_${shotIdx}`;
+    const prompt = sc.shot_prompts?.[shotIdx] || sc.screen_prompt;
+    setShotGenerating(p => ({...p, [key]: true}));
+    try {
+      const createRes = await fetch('/api/video', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ screen_prompt: prompt, scene_no: sc.scene_no, action: 'create' })
+      });
+      const createData = await createRes.json();
+      if (!createRes.ok) throw new Error(createData.error);
+      const { task_id } = createData;
+
+      let videoUrl = null;
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => setTimeout(r, 5000));
+        const statusRes = await fetch('/api/video', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ task_id, scene_no: sc.scene_no, action: 'status' })
+        });
+        const statusData = await statusRes.json();
+        if (statusData.status === 'succeed' && statusData.video_url) { videoUrl = statusData.video_url; break; }
+        if (statusData.raw_status === 'completed' && !statusData.video_url) throw new Error('완료됐지만 URL 추출 실패. 🔄 복구 버튼을 눌러주세요.');
+        if (statusData.raw_status === 'failed') throw new Error('생성 실패');
+      }
+      if (!videoUrl) throw new Error('시간 초과. 🔄 복구 버튼을 눌러주세요.');
+      setShotMap(p => ({...p, [sc.scene_no]: {...(p[sc.scene_no]||{}), [shotIdx]: videoUrl}}));
+    } catch(e) {
+      alert(`Shot ${shotIdx+1} 오류: ${e.message}`);
+    }
+    setShotGenerating(p => ({...p, [key]: false}));
   }
 
   async function generateKlingScene(sc) {
@@ -700,6 +737,37 @@ export default function Home() {
                         <div className="vc-info">
                           <div className="vc-chapter">{sc.chapter}</div>
                           <div className="vc-narr">{sc.narration}</div>
+
+                          {/* Shot별 개별 생성 */}
+                          {sc.shot_prompts && (
+                            <div style={{marginTop:10,display:'grid',gap:6}}>
+                              <div style={{fontFamily:'var(--tf)',fontSize:10,fontWeight:600,letterSpacing:'.06em',textTransform:'uppercase',color:'var(--t48)'}}>Shot별 영상 생성 (각 10초)</div>
+                              {sc.shot_prompts.map((prompt, idx) => {
+                                const key = `${sc.scene_no}_${idx}`;
+                                const isGen = shotGenerating[key];
+                                const shotUrl = shotMap[sc.scene_no]?.[idx];
+                                const shotNames = ['Shot 1 — Eye-level', 'Shot 2 — Close-up', 'Shot 3 — Wide'];
+                                return (
+                                  <div key={idx} style={{background:'var(--lg)',borderRadius:8,padding:'8px 10px',display:'flex',alignItems:'center',gap:8}}>
+                                    <div style={{flex:1,minWidth:0}}>
+                                      <div style={{fontFamily:'var(--tf)',fontSize:11,fontWeight:600,color:'var(--blue)',marginBottom:2}}>{shotNames[idx]}</div>
+                                      <div style={{fontFamily:'var(--tf)',fontSize:10,color:'var(--t48)',lineHeight:1.4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{prompt}</div>
+                                    </div>
+                                    {shotUrl
+                                      ? <a href={shotUrl} download={`scene_${sc.scene_no}_shot${idx+1}.mp4`} target="_blank" rel="noreferrer"
+                                          style={{flexShrink:0,fontFamily:'var(--tf)',fontSize:11,color:'var(--lb)',textDecoration:'none'}}>MP4 ↓</a>
+                                      : <button onClick={()=>generateShot(sc, idx)} disabled={isGen}
+                                          style={{flexShrink:0,padding:'4px 10px',background:isGen?'rgba(0,113,227,0.2)':'var(--blue)',color:'#fff',border:'none',borderRadius:6,fontFamily:'var(--tf)',fontSize:11,cursor:isGen?'not-allowed':'pointer',whiteSpace:'nowrap'}}>
+                                          {isGen ? '생성 중...' : '생성'}
+                                        </button>
+                                    }
+                                    {shotUrl && <video src={shotUrl} style={{width:60,height:34,objectFit:'cover',borderRadius:4}} muted playsInline/>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
                           {audioUrl && (
                             <div className="vc-audio">
                               <audio controls src={audioUrl} style={{width:'100%',height:28}}/>

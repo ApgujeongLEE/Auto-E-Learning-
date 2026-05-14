@@ -30,13 +30,13 @@ export default async function handler(req, res) {
         prompt: screen_prompt,
         mode: 'first_last_frames',
         image_urls: [image_url],
-        duration: 5,
+        duration: 10,
         aspect_ratio: '16:9',
       } : {
         // 텍스트→영상 모드
         prompt: screen_prompt,
         mode: 'text_to_video',
-        duration: 5,
+        duration: 10,
         aspect_ratio: '16:9',
       };
 

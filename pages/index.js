@@ -322,6 +322,8 @@ export default function Home() {
     setKlingGenerating(prev => ({...prev, [sc.scene_no]: false}));
     setKlingProgress(prev => ({...prev, [sc.scene_no]: ''}));
   }
+
+  function handleMediaUpload(sceneNo, file) {
     if (!file) return;
     const type = file.type.startsWith('video') ? 'video' : 'image';
     const url = URL.createObjectURL(file);

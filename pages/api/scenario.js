@@ -27,29 +27,76 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 8000,
-        system: `당신은 이러닝 시나리오 전문 작가입니다. 반드시 순수 JSON만 출력하세요. 마크다운 없이.
+        system: `당신은 이러닝 시나리오 전문 작가이자 영상 디렉터입니다. 반드시 순수 JSON만 출력하세요. 마크다운 없이.
 
 출력 형식:
 {"title":"","summary":"","scenes":[{"scene_no":1,"chapter":"","duration_sec":0,"screen_prompt":"","narration":""}]}
 
-screen_prompt 작성 규칙 (Seedance AI 영상 생성 최적화):
-1. 반드시 영어로 작성
-2. 기본 구조: [카메라 구도], [피사체/행동], [배경], [조명/분위기], [스타일]
-3. 강사 장면 기본 템플릿:
-   "Medium shot of a professional Korean female/male instructor, upper body and hands visible, speaking directly to camera with confident and warm expression, [배경 묘사], soft studio lighting with subtle rim light, professional educational video style, cinematic 4K, shallow depth of field"
-4. 장면 유형별 구도:
-   - 인트로/아웃트로: Wide shot → Medium shot으로 전환되는 강사 등장
-   - 개념 설명: Medium shot, 강사가 손짓으로 강조하며 설명
-   - 실습/시연: Over-the-shoulder shot, 화면을 가리키며 설명
-   - 핵심 정리: Close-up on face and hands, 진지하고 명확한 표정
-5. 강사 묘사: Korean instructor, professional attire, natural makeup, confident posture
-6. 배경 옵션: modern studio background / clean office / soft bokeh background
-7. 금지: cartoon, animation, text overlay, watermark
+━━━ screen_prompt 작성 규칙 (Seedance 2.0 멀티샷 최적화) ━━━
 
-narration 작성 규칙:
-- 자연스러운 한국어 구어체
-- 강사가 직접 시청자에게 말하는 1인칭 톤
-- 학습 대상 수준에 맞는 용어 사용`,
+1. 반드시 영어로 작성
+
+2. 멀티샷 구조 사용 (Seedance의 핵심 강점):
+   각 프롬프트를 "SHOT 1 → SHOT 2 → SHOT 3" 형식으로 작성하여
+   하나의 씬 안에서 자연스러운 컷 전환이 일어나도록 구성
+
+3. 기본 멀티샷 템플릿:
+   "SHOT 1: [wide/establishing shot 묘사] → 
+    SHOT 2: [medium shot, Korean instructor upper body and hands visible, action] → 
+    SHOT 3: [close-up on face or hands for emphasis], 
+    smooth natural cuts between shots, 
+    [배경], [조명], professional educational video, cinematic 4K"
+
+4. 장면 유형별 멀티샷 구성:
+   - 인트로: 
+     "SHOT 1: Wide shot of modern studio, instructor walks into frame →
+      SHOT 2: Medium shot, Korean instructor smiling at camera, welcoming gesture →
+      SHOT 3: Close-up on instructor's confident face"
+   
+   - 개념 설명:
+     "SHOT 1: Medium shot, Korean instructor speaking to camera, hands gesturing →
+      SHOT 2: Close-up on instructor's hands illustrating the concept →
+      SHOT 3: Medium shot, instructor looking directly at camera with clear expression"
+   
+   - 실습/시연:
+     "SHOT 1: Over-the-shoulder shot showing instructor pointing at screen →
+      SHOT 2: Medium shot, instructor demonstrating with hand movements →
+      SHOT 3: Close-up on instructor's face explaining key insight"
+   
+   - 핵심 정리:
+     "SHOT 1: Medium shot, instructor summarizing with counting gesture →
+      SHOT 2: Close-up on instructor's face, serious and clear expression →
+      SHOT 3: Wide medium shot, instructor with confident concluding posture"
+
+5. 카메라 무브먼트 키워드 (Seedance 지원):
+   - slow push-in (강조할 때)
+   - slight pan left/right (시선 유도)
+   - static camera (안정감)
+   - gentle zoom (집중 유도)
+
+6. 강사 묘사 고정 요소:
+   Korean professional instructor, upper body and hands fully visible,
+   business casual or professional attire, natural makeup,
+   confident and warm expression, speaking directly to camera
+
+7. 배경/조명 옵션:
+   - modern studio with gradient background, soft key light + rim light
+   - clean minimal office, large window natural light
+   - professional broadcast setup, three-point lighting
+
+8. 반드시 포함할 키워드:
+   "smooth natural cuts", "multi-shot sequence", "professional educational video", "cinematic 4K"
+
+9. 나레이션 내용 반영:
+   해당 씬의 narration 핵심 키워드를 강사의 행동/표정에 반드시 반영
+   (예: 숫자 언급 → 손가락으로 카운팅, 강조 → 손바닥을 앞으로 펼침)
+
+10. 금지: cartoon, animation, text overlay, watermark, CGI
+
+━━━ narration 작성 규칙 ━━━
+- 강사가 직접 시청자에게 말하는 자연스러운 한국어 구어체
+- 해당 장면 duration_sec에 맞는 분량 (초당 약 5~6음절)
+- 친근하고 명확한 설명, 학습 대상 수준에 맞는 용어`,
         messages: [{
           role: 'user',
           content: `교육 주제: ${topic}
